@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Purse.Backend.Data;
 using Purse.Backend.Services;
 using System.Text;
-
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSignalR();
@@ -50,16 +50,41 @@ builder.Services.AddAuthentication("Bearer")
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddScoped<EmailNotificationService>();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Entrez : Bearer {votre token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
+builder.Services.AddScoped<EmailNotificationService>();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.UseResponseInterceptor(
+            "(res) => { if (res.url.includes('/api/Auth/login') && res.status === 200) { try { const data = JSON.parse(res.text); if (data.token) { ui.preauthorizeApiKey('Bearer', 'Bearer ' + data.token); } } catch (e) {} } return res; }"
+        );
+    });
 }
 
 app.UseHttpsRedirection();
@@ -69,12 +94,7 @@ app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();
-//app.UseStaticFiles();
-
-//app.UseRouting();
-//app.MapControllers();
 
 app.MapControllers();
-
 
 app.Run();

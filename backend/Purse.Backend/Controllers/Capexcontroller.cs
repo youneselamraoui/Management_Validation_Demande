@@ -104,7 +104,6 @@ public class CapexController : ControllerBase
     {
         var capex = await _context.Capexes
             .Include(c => c.Demandes)
-            .Include(c => c.Transactions)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (capex == null)

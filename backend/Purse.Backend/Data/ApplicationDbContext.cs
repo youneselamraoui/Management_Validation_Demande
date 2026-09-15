@@ -70,12 +70,6 @@ namespace Purse.Backend.Data
                 .HasForeignKey(d => d.DemandeId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // DetailsDemande → Fournisseur : pas de cascade
-            modelBuilder.Entity<DetailsDemande>()
-                .HasOne(d => d.Fournisseur)
-                .WithMany()
-                .HasForeignKey(d => d.FournisseurId)
-                .OnDelete(DeleteBehavior.NoAction);
 
             // Utilisateur → Chef (auto référence) : pas de cascade
             modelBuilder.Entity<Utilisateur>()

@@ -28,7 +28,6 @@ namespace Purse.Backend.Controllers
                         .ThenInclude(u => u.Departement)
                 .Include(b => b.Demande)
                     .ThenInclude(d => d.Details)
-                        .ThenInclude(x => x.Fournisseur)
                 .Include(b => b.Demande)
                     .ThenInclude(d => d.Capex)
                 .Include(b => b.Fournisseur)
@@ -73,25 +72,18 @@ namespace Purse.Backend.Controllers
                                             : null
                         },
 
-                        //  seulement les articles de CE fournisseur
+                        // tous les articles de la demande (plus de filtre par fournisseur)
                         Details = b.Demande.Details
-                            .Where(x => x.FournisseurId == b.FournisseurId)
                             .Select(x => new
                             {
                                 Article = x.Article,
                                 Quantite = x.Quantite,
                                 Prix = x.Prix,
-                                Devis = x.Devis,
-                                Fournisseur = x.Fournisseur == null ? null : new
-                                {
-                                    Id = x.Fournisseur.Id,
-                                    Nom = x.Fournisseur.Nom
-                                }
+                                Devis = x.Devis
                             }),
 
-                        //  total seulement pour CE fournisseur
+                        // total sur tous les articles de la demande
                         TotalPrix = b.Demande.Details
-                            .Where(x => x.FournisseurId == b.FournisseurId)
                             .Sum(x => (x.Prix ?? 0) * x.Quantite)
                     }
 

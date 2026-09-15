@@ -1,4 +1,6 @@
 namespace Purse.Backend.Models;
+using System.ComponentModel.DataAnnotations.Schema;
+
 
 public class BonCommande
 {
@@ -8,7 +10,9 @@ public class BonCommande
 
     public required string Po { get; set; }  
     public DateTime DateCreation { get; set; }
-    public int? FournisseurId { get; set; }
+    public int? FournisseurId { get; set; }         // colonne existante
     public Fournisseur? Fournisseur { get; set; }
-    public int? DelaiPaiement { get; set; }
+
+    [NotMapped]
+    public int? DelaiPaiement { get; set; }          // non persisté
 }

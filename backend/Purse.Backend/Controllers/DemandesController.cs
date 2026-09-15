@@ -161,7 +161,7 @@ namespace Purse.Backend.Controllers
                 .Include(d => d.Utilisateur!)
                     .ThenInclude(u => u.Chef)           //  chef
                 .Include(d => d.Details)
-                 .ThenInclude(x => x.Fournisseur)
+                 
                  .Include(d => d.BonsCommande)
                 .Include(d => d.Capex);
 
