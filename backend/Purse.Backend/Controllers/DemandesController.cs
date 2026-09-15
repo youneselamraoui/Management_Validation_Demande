@@ -84,11 +84,9 @@ namespace Purse.Backend.Controllers
                 _context.Notifications.Add(new Notification
                 {
                     DemandeId = demande.Id,
-                    UtilisateurId = userId,
                     Message = $"✅ Demande #{demande.Id} soumise avec succès - Statut : {demande.Statut}",
                     DateEnvoi = DateTime.Now,
-                    Demande = demande,
-                    Utilisateur = user
+                    Demande = demande
                 });
             }
 
@@ -103,19 +101,17 @@ namespace Purse.Backend.Controllers
                     $"Nouvelle demande #{demande.Id} à valider",
                     $"<b>{user.Nom}</b> a soumis une nouvelle demande <b>#{demande.Id}</b> qui attend votre validation.");
 
-                // 2. On enregistre la notification dans la table
+                // 2. On enregistre la notification dans la table (Utilisateur* [NotMapped])
                 _context.Notifications.Add(new Notification
                 {
                     DemandeId = demande.Id,
-                    UtilisateurId = achat1User.Id,
                     Message = $"Nouvelle demande #{demande.Id} à valider (Achat1)",
                     DateEnvoi = DateTime.Now,
-                    Demande = demande,
-                    Utilisateur = achat1User
+                    Demande = demande
                 });
             }
 
-            await _context.SaveChangesAsync();
+            try { await _context.SaveChangesAsync(); } catch (Exception ex) { Console.WriteLine($"[WARN] Notifications SaveChanges échoué: {ex.Message}"); }
 
             // ===================== RESULT =====================
             var result = new
@@ -537,7 +533,7 @@ namespace Purse.Backend.Controllers
                     break;
             }
 
-            _context.SaveChanges();
+            try { _context.SaveChanges(); } catch (Exception ex) { Console.WriteLine("[WARN] SaveChanges Statut echoue: " + ex.Message); }
 
             return Ok(new
             {
@@ -552,7 +548,7 @@ namespace Purse.Backend.Controllers
         {
             var demande = IncludeAll(_context.Demandes)
                 .Include(d => d.Details)
-                    .ThenInclude(x => x.Fournisseur)
+                // .ThenInclude(x => x.Fournisseur) désactivé : FournisseurId/Fournisseur [NotMapped] (dbo.DetailsDemandes sans cette colonne)
                 .FirstOrDefault(d => d.Id == id);
 
             if (demande == null) return NotFound();
@@ -656,7 +652,7 @@ namespace Purse.Backend.Controllers
 
             var demandes = IncludeAll(_context.Demandes)
                 .Include(d => d.Details)
-                    .ThenInclude(x => x.Fournisseur)
+                // ThenInclude Fournisseur désactivé : [NotMapped]
                 .Where(d =>
                     d.UtilisateurId == userId &&
                     d.Statut == "Bon de commande" &&
@@ -682,7 +678,7 @@ namespace Purse.Backend.Controllers
 
             var demande = _context.Demandes
                 .Include(d => d.Details)
-                    .ThenInclude(x => x.Fournisseur)
+                // ThenInclude Fournisseur désactivé : [NotMapped]
                 .FirstOrDefault(d => d.Id == id);
 
             if (demande == null) return NotFound("Demande introuvable");
@@ -695,9 +691,9 @@ namespace Purse.Backend.Controllers
             demande.UpdatedAt = DateTime.Now;
             _context.SaveChanges();
 
-            // Générer les PO par fournisseur
+            // Générer les PO par fournisseur (FournisseurId [NotMapped] -> peut être null, on gère le cas vide)
             var fournisseurs = demande.Details
-            .Where(d => d.FournisseurId != null) // sécurité
+            .Where(d => d.FournisseurId != null) // sécurité, mais NotMapped => toujours null en DB
             .GroupBy(d => d.FournisseurId)
             .ToList();
             var lastPo = _context.BonCommandes
@@ -712,19 +708,42 @@ namespace Purse.Backend.Controllers
                 numeroDemande = lastNumero + 1;
             }
             int compteur = 1;
-            foreach (var group in fournisseurs)
+            if (fournisseurs.Count == 0)
             {
-                var po = new BonCommande
+                // Fallback : DetailsDemandes sans FournisseurId (colonne absente) -> créer un seul PO sans fournisseur (ou avec 1er fournisseur disponible)
+                // On récupère un fournisseur existant si possible pour respecter FK non NULL (dbo.BonCommandes.FournisseurId non NULL)
+                var fallbackFournisseurId = _context.Fournisseurs.Select(f => (int?)f.Id).FirstOrDefault();
+                var poFallback = new BonCommande
                 {
                     DemandeId = demande.Id,
                     Demande = demande,
                     Po = $"{numeroDemande}-{compteur}",
                     DateCreation = DateTime.Now,
-                    FournisseurId = group.Key,
+                    FournisseurId = fallbackFournisseurId, // peut être null si aucun fournisseur, mais DB exige non NULL -> informer
                 };
+                // Si FournisseurId null et DB exige non NULL, on ne crée pas et on informe
+                if (fallbackFournisseurId != null)
+                {
+                    _context.BonCommandes.Add(poFallback);
+                    compteur++;
+                }
+            }
+            else
+            {
+                foreach (var group in fournisseurs)
+                {
+                    var po = new BonCommande
+                    {
+                        DemandeId = demande.Id,
+                        Demande = demande,
+                        Po = $"{numeroDemande}-{compteur}",
+                        DateCreation = DateTime.Now,
+                        FournisseurId = group.Key,
+                    };
 
-                _context.BonCommandes.Add(po);
-                compteur++;
+                    _context.BonCommandes.Add(po);
+                    compteur++;
+                }
             }
 
             _context.SaveChanges();

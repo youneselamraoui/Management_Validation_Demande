@@ -20,7 +20,6 @@ namespace Purse.Backend.Controllers
 
         // GET: api/utilisateurs
         [HttpGet]
-        [HttpGet]
         public IActionResult GetAll()
         {
             var utilisateurs = _context.Utilisateurs
@@ -33,6 +32,8 @@ namespace Purse.Backend.Controllers
                     Email = u.Email,
                     Role = u.Role,
                     DepartementNom = u.Departement.Nom,
+                    DepartementId = u.DepartementId,
+                    ChefId = u.ChefId,
                     ChefNom = u.Chef != null ? u.Chef.Nom : null,
                     Active = u.Active
                 })
@@ -92,7 +93,10 @@ namespace Purse.Backend.Controllers
                 Email = user.Email,
                 Role = user.Role,
                 DepartementNom = _context.Departements.Find(user.DepartementId)?.Nom ?? "",
-                ChefNom = user.ChefId != null ? _context.Utilisateurs.Find(user.ChefId)?.Nom : null
+                DepartementId = user.DepartementId,
+                ChefId = user.ChefId,
+                ChefNom = user.ChefId != null ? _context.Utilisateurs.Find(user.ChefId)?.Nom : null,
+                Active = user.Active
             };
 
             return Ok(new { success = true, user = result });
@@ -122,8 +126,10 @@ namespace Purse.Backend.Controllers
                 Nom = existing.Nom,
                 Email = existing.Email,
                 Role = existing.Role,
-                DepartementNom = existing.Departement?.Nom ?? "",
-                ChefNom = existing.Chef?.Nom,
+                DepartementNom = existing.Departement?.Nom ?? _context.Departements.Find(existing.DepartementId)?.Nom ?? "",
+                DepartementId = existing.DepartementId,
+                ChefId = existing.ChefId,
+                ChefNom = existing.Chef?.Nom ?? (existing.ChefId != null ? _context.Utilisateurs.Find(existing.ChefId)?.Nom : null),
                 Active = existing.Active
             };
 

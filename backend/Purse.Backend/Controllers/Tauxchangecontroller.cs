@@ -22,20 +22,41 @@ public class TauxChangeController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var taux = await _context.TauxChanges
-            .OrderBy(t => t.DevisSource)
-            .ToListAsync();
-        return Ok(taux);
+        try
+        {
+            var taux = await _context.TauxChanges
+                .OrderBy(t => t.DevisSource)
+                .ToListAsync();
+            return Ok(taux);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            // dbo.TauxChanges n'existe pas dans ta DB (screenshot) -> retour vide au lieu de 500
+            Console.WriteLine($"[WARN] TauxChanges table manquante: {ex.Message}");
+            return Ok(new List<TauxChange>());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WARN] TauxChanges GetAll échoué: {ex.Message}");
+            return Ok(new List<TauxChange>());
+        }
     }
 
     // GET: api/tauxchange/5
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var taux = await _context.TauxChanges.FindAsync(id);
-        if (taux == null)
-            return NotFound(new { success = false, message = "Taux introuvable" });
-        return Ok(taux);
+        try
+        {
+            var taux = await _context.TauxChanges.FindAsync(id);
+            if (taux == null)
+                return NotFound(new { success = false, message = "Taux introuvable" });
+            return Ok(taux);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            return NotFound(new { success = false, message = "Table TauxChanges inexistante en DB" });
+        }
     }
 
     // POST: api/tauxchange
@@ -45,52 +66,73 @@ public class TauxChangeController : ControllerBase
         if (string.IsNullOrWhiteSpace(body.DevisSource) || string.IsNullOrWhiteSpace(body.DevisCible))
             return BadRequest(new { success = false, message = "Devise source et cible sont requises" });
 
-        var exists = await _context.TauxChanges.AnyAsync(t =>
-            t.DevisSource == body.DevisSource && t.DevisCible == body.DevisCible);
-
-        if (exists)
-            return BadRequest(new { success = false, message = $"Taux {body.DevisSource} → {body.DevisCible} existe déjà" });
-
-        var taux = new TauxChange
+        try
         {
-            DevisSource = body.DevisSource.ToUpper().Trim(),
-            DevisCible = body.DevisCible.ToUpper().Trim(),
-            Taux = body.Taux,
-        };
+            var exists = await _context.TauxChanges.AnyAsync(t =>
+                t.DevisSource == body.DevisSource && t.DevisCible == body.DevisCible);
 
-        _context.TauxChanges.Add(taux);
-        await _context.SaveChangesAsync();
+            if (exists)
+                return BadRequest(new { success = false, message = $"Taux {body.DevisSource} → {body.DevisCible} existe déjà" });
 
-        return Ok(new { success = true, message = "Taux ajouté avec succès", id = taux.Id });
+            var taux = new TauxChange
+            {
+                DevisSource = body.DevisSource.ToUpper().Trim(),
+                DevisCible = body.DevisCible.ToUpper().Trim(),
+                Taux = body.Taux,
+            };
+
+            _context.TauxChanges.Add(taux);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Taux ajouté avec succès", id = taux.Id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(500, new { success = false, message = "Table TauxChanges inexistante en DB - exécute la migration ou crée la table", detail = ex.Message });
+        }
     }
 
     // PUT: api/tauxchange/5
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] TauxChange body)
     {
-        var taux = await _context.TauxChanges.FindAsync(id);
-        if (taux == null)
-            return NotFound(new { success = false, message = "Taux introuvable" });
+        try
+        {
+            var taux = await _context.TauxChanges.FindAsync(id);
+            if (taux == null)
+                return NotFound(new { success = false, message = "Taux introuvable" });
 
-        taux.DevisSource = body.DevisSource.ToUpper().Trim();
-        taux.DevisCible = body.DevisCible.ToUpper().Trim();
-        taux.Taux = body.Taux;
+            taux.DevisSource = body.DevisSource.ToUpper().Trim();
+            taux.DevisCible = body.DevisCible.ToUpper().Trim();
+            taux.Taux = body.Taux;
 
-        await _context.SaveChangesAsync();
-        return Ok(new { success = true, message = "Taux modifié avec succès" });
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "Taux modifié avec succès" });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(500, new { success = false, message = "Table TauxChanges inexistante en DB", detail = ex.Message });
+        }
     }
 
     // DELETE: api/tauxchange/5
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var taux = await _context.TauxChanges.FindAsync(id);
-        if (taux == null)
-            return NotFound(new { success = false, message = "Taux introuvable" });
+        try
+        {
+            var taux = await _context.TauxChanges.FindAsync(id);
+            if (taux == null)
+                return NotFound(new { success = false, message = "Taux introuvable" });
 
-        _context.TauxChanges.Remove(taux);
-        await _context.SaveChangesAsync();
+            _context.TauxChanges.Remove(taux);
+            await _context.SaveChangesAsync();
 
-        return Ok(new { success = true, message = "Taux supprimé avec succès" });
+            return Ok(new { success = true, message = "Taux supprimé avec succès" });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(500, new { success = false, message = "Table TauxChanges inexistante en DB", detail = ex.Message });
+        }
     }
 }

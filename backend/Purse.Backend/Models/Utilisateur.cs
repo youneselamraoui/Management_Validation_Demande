@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Purse.Backend.Models;
 
 public class Utilisateur
@@ -14,4 +16,13 @@ public class Utilisateur
     public int? ChefId { get; set; }
     public Utilisateur? Chef { get; set; }
     public bool Active { get; set; } = true;
+
+    // Colonnes DB supplémentaires (existent dans dbo.Utilisateurs) mais non utilisées -> NotMapped pour compatibilité
+    // DoitChangerMotDePasse, EmailChef, NomChef existent en DB (screenshot) -> les exposer en NotMapped évite Invalid column si on les ajoute plus tard
+    [NotMapped]
+    public bool? DoitChangerMotDePasse { get; set; }
+    [NotMapped]
+    public string? EmailChef { get; set; }
+    [NotMapped]
+    public string? NomChef { get; set; }
 }

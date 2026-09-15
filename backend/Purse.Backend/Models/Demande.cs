@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Purse.Backend.Models;
 
 public class Demande
@@ -28,8 +30,29 @@ public class Demande
     public DateTime? DateValidateDirecteur { get; set; }
     public string? CheminDevis { get; set; }
 
+    [NotMapped]
     public ICollection<TransactionCapex> Transactions { get; set; } = new List<TransactionCapex>();
+    [NotMapped]
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public ICollection<DetailsDemande> Details { get; set; } = new List<DetailsDemande>();
     public ICollection<BonCommande> BonsCommande { get; set; } = new List<BonCommande>();
+
+    [NotMapped]
+    public string? CheminSAP { get; set; }
+    [NotMapped]
+    public string? CheminFinance { get; set; }
+    [NotMapped]
+    public int? sta1 { get; set; }
+    [NotMapped]
+    public int? sta2 { get; set; }
+    [NotMapped]
+    public int? stc { get; set; }
+    [NotMapped]
+    public int? stf { get; set; }
+    [NotMapped]
+    public int? std { get; set; }
+    [NotMapped]
+    public int? stu { get; set; }
+    [NotMapped]
+    public int? stp { get; set; }
 }

@@ -30,31 +30,27 @@ namespace Purse.Backend.Data
             // ------------------------
 
 
-            // Stcapx
-
             modelBuilder.Entity<ActiveUser>()
            .ToView("vw_ActiveUsers")
            .HasKey(u => u.Id);
-            // Notification → Demande : pas de cascade
-            modelBuilder.Entity<Notification>()
-                .HasOne(n => n.Demande)
-                .WithMany(d => d.Notifications)
-                .HasForeignKey(n => n.DemandeId)
-                .OnDelete(DeleteBehavior.NoAction);
 
-            // TransactionCapex → Demande : pas de cascade
-            modelBuilder.Entity<TransactionCapex>()
-                .HasOne(t => t.Demande)
-                .WithMany(d => d.Transactions)
-                .HasForeignKey(t => t.DemandeId)
-                .OnDelete(DeleteBehavior.NoAction);
+    
+            modelBuilder.Entity<Notification>(eb =>
+            {
+                eb.HasOne(n => n.Demande)
+                  .WithMany() // pas de WithMany vers Demande.Notifications (NotMapped)
+                  .HasForeignKey(n => n.DemandeId)
+                  .OnDelete(DeleteBehavior.NoAction);
+                eb.Ignore(n => n.Utilisateur);
+                eb.Ignore(n => n.UtilisateurId);
+                eb.Ignore(n => n.User2);
+            });
 
-            // TransactionCapex → Capex : cascade ok
-            modelBuilder.Entity<TransactionCapex>()
-                .HasOne(t => t.Capex)
-                .WithMany(c => c.Transactions)
-                .HasForeignKey(t => t.CapexId)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TransactionCapex>(eb =>
+            {
+                eb.Ignore(t => t.Demande);
+                eb.Ignore(t => t.Capex);
+            });
 
             // BonCommande → Demande : pas de cascade
             modelBuilder.Entity<BonCommande>()
@@ -98,6 +94,45 @@ namespace Purse.Backend.Data
                 .WithMany()
                 .HasForeignKey(d => d.UtilisateurId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Ignorer explicitement les propriétés [NotMapped] pour éviter que EF ne tente de mapper des colonnes absentes
+            modelBuilder.Entity<Demande>().Ignore(d => d.Transactions);
+            modelBuilder.Entity<Demande>().Ignore(d => d.Notifications);
+            modelBuilder.Entity<Demande>().Ignore(d => d.CheminSAP);
+            modelBuilder.Entity<Demande>().Ignore(d => d.CheminFinance);
+            modelBuilder.Entity<Demande>().Ignore(d => d.sta1);
+            modelBuilder.Entity<Demande>().Ignore(d => d.sta2);
+            modelBuilder.Entity<Demande>().Ignore(d => d.stc);
+            modelBuilder.Entity<Demande>().Ignore(d => d.stf);
+            modelBuilder.Entity<Demande>().Ignore(d => d.std);
+            modelBuilder.Entity<Demande>().Ignore(d => d.stu);
+            modelBuilder.Entity<Demande>().Ignore(d => d.stp);
+
+            modelBuilder.Entity<Utilisateur>().Ignore(u => u.DoitChangerMotDePasse);
+            modelBuilder.Entity<Utilisateur>().Ignore(u => u.EmailChef);
+            modelBuilder.Entity<Utilisateur>().Ignore(u => u.NomChef);
+
+            modelBuilder.Entity<Capex>().Ignore(c => c.Transactions);
+            modelBuilder.Entity<Capex>().Ignore(c => c.Devis);
+
+            modelBuilder.Entity<Fournisseur>().Ignore(f => f.Contact);
+            modelBuilder.Entity<Fournisseur>().Ignore(f => f.Adresse);
+            modelBuilder.Entity<Fournisseur>().Ignore(f => f.Tel);
+            modelBuilder.Entity<Fournisseur>().Ignore(f => f.Active);
+
+            // FournisseurId maintenant mappé (nvarchar) -> ne plus Ignorer, Fournisseur navigation reste NotMapped
+            // Conversion int? <-> string pour dbo.DetailsDemandes.FournisseurId nvarchar(max)
+            modelBuilder.Entity<DetailsDemande>().Ignore(d => d.Fournisseur);
+            modelBuilder.Entity<DetailsDemande>().Property(d => d.FournisseurId)
+                .HasColumnType("nvarchar(max)")
+                .HasConversion(
+                    v => v == null ? null : v.ToString(),
+                    v => string.IsNullOrEmpty(v) ? null : int.Parse(v));
+
+            modelBuilder.Entity<BonCommande>().Ignore(b => b.DelaiPaiement);
+
+            // Détails supplémentaires : éviter erreurs si tables TauxChanges/TransactionCapex absentes
+            // Elles restent mappées mais ne bloquent pas le démarrage si absentes (requêtes échoueront -> catch côté controller)
         }
     }
 }
