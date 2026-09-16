@@ -15,6 +15,14 @@ namespace Purse.Backend.Controllers
         private readonly ApplicationDbContext _context;
         private readonly EmailNotificationService _emailService;
 
+        //  La table "Notifications" n'existe pas dans cette base (erreur SQL "Nom d'objet
+        //  'Notifications' non valide"). Tant qu'elle n'est pas créée, on désactive la
+        //  persistance en base des notifications pour ne pas bloquer le workflow ni faire
+        //  échouer un SaveChanges à chaque appel. Les emails continuent d'être envoyés
+        //  normalement (_emailService), indépendamment de ce flag.
+        //  → Repasser à true dès que la table Notifications existe (migration EF appliquée).
+        private const bool NotificationsPersistanceActive = false;
+
         public DemandesController(ApplicationDbContext context, EmailNotificationService emailService)
         {
             _context = context;
@@ -59,7 +67,7 @@ namespace Purse.Backend.Controllers
                 FichierPath = fichierPath,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
-                Statut = "En attente validation achat1",
+                Statut = "En attente validation chef",
 
                 Details = dto.Details.Select(d => new DetailsDemande
                 {
@@ -71,9 +79,8 @@ namespace Purse.Backend.Controllers
 
             _context.Demandes.Add(demande);
             await _context.SaveChangesAsync();
-            // ===================== NOTIFICATIONS =====================
             bool emailCreateurEnvoye = false;
-            bool emailAchat1Envoye = false;
+            bool emailChefEnvoye = false;
 
             if (!string.IsNullOrEmpty(user.Email) && user.Active == true)
             {
@@ -81,7 +88,7 @@ namespace Purse.Backend.Controllers
                     $"✅ Demande #{demande.Id} soumise avec succès",
                     $"Votre demande <b>#{demande.Id}</b> a été soumise avec succès.<br>" +
                     $"Statut actuel : <b>{demande.Statut}</b>");
-                _context.Notifications.Add(new Notification
+                if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                 {
                     DemandeId = demande.Id,
                     Message = $"✅ Demande #{demande.Id} soumise avec succès - Statut : {demande.Statut}",
@@ -90,22 +97,16 @@ namespace Purse.Backend.Controllers
                 });
             }
 
-            var achat1User = await _context.Utilisateurs
-                .FirstOrDefaultAsync(u => u.Role == "achat1" && u.Active == true);
-
-            // Si on a trouvé un utilisateur Achat1 actif avec un email
-            if (achat1User != null && !string.IsNullOrEmpty(achat1User.Email))
+            var chefUser = user.ChefId.HasValue ? await _context.Utilisateurs.FirstOrDefaultAsync(u => u.Id == user.ChefId.Value && u.Active == true) : null;
+            if (chefUser != null && !string.IsNullOrEmpty(chefUser.Email))
             {
-
-                emailAchat1Envoye = _emailService.SendNotification(achat1User.Email,
+                emailChefEnvoye = _emailService.SendNotification(chefUser.Email,
                     $"Nouvelle demande #{demande.Id} à valider",
                     $"<b>{user.Nom}</b> a soumis une nouvelle demande <b>#{demande.Id}</b> qui attend votre validation.");
-
-                // 2. On enregistre la notification dans la table (Utilisateur* [NotMapped])
-                _context.Notifications.Add(new Notification
+                if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                 {
                     DemandeId = demande.Id,
-                    Message = $"Nouvelle demande #{demande.Id} à valider (Achat1)",
+                    Message = $"Nouvelle demande #{demande.Id} à valider (Chef)",
                     DateEnvoi = DateTime.Now,
                     Demande = demande
                 });
@@ -138,7 +139,7 @@ namespace Purse.Backend.Controllers
                 Notifications = new
                 {
                     EmailCreateur = emailCreateurEnvoye,
-                    emailAchat1Envoye = user.ChefId == null ? emailAchat1Envoye : (bool?)null
+                    EmailChef = emailChefEnvoye
                 }
             };
 
@@ -170,9 +171,13 @@ namespace Purse.Backend.Controllers
             d.Statut,
             d.CreatedAt,
             d.Commentaire,
+            d.Justification,
             d.CapexId,
             d.DateValidationAchat1,
             d.DateValidationAchat2,
+            d.DateValidateChef,
+            d.DateValidateFinance,
+            d.DateValidateDirecteur,
             d.RFX,
             d.CheminDevis,
             d.FichierPath,
@@ -311,6 +316,7 @@ namespace Purse.Backend.Controllers
         {
             var demande = _context.Demandes
                .Include(d => d.Capex)
+               .Include(d => d.Details)
                .Include(d => d.Utilisateur!)
                 .ThenInclude(u => u.Chef)
             .FirstOrDefault(d => d.Id == id);
@@ -318,50 +324,64 @@ namespace Purse.Backend.Controllers
 
             var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower().Trim();
             if (string.IsNullOrEmpty(roleClaim)) return Unauthorized();
-            demande.Statut = (roleClaim, dto.Action.ToLower()) switch
+
+            var action = dto.Action?.ToLower().Trim();
+            if (action != "valider" && action != "refuser")
+                return BadRequest(new { message = $"Action invalide : '{dto.Action}'. Valeurs attendues : 'valider' ou 'refuser'." });
+
+            //  achat1 doit avoir saisi un prix pour chaque article avant de pouvoir valider
+            if (roleClaim == "achat1" && action == "valider" && demande.Details.Any(x => x.Prix == null))
             {
-                ("chef", "valider") => "En attente validation achat2",
-                ("chef", "refuser") => "Refusé chef",
-                ("achat1", "valider") => demande.Utilisateur?.ChefId == null
-                    ? "En attente validation achat2"
-                    : "En attente validation chef",
-                ("achat1", "refuser") => "Refusé achat1",
-                ("achat2", "valider") => "En attente confirmation finance",
-                ("achat2", "refuser") => "Refusé achat2",
-                ("finance", "valider") => "En attente validation directeur",
-                ("finance", "refuser") => "Refusé finance",
-                ("directeur", "valider") => "Bon de commande",
-                ("directeur", "refuser") => "Refusé directeur",
-                _ => demande.Statut
-               /* ("chef", "valider") => demande.DateValidationAchat1==null 
-                ? "En attente validation achat1"
-                : "En attente confirmation finance",
-                ("chef", "refuser") => "Refusé chef",
-                ("achat1", "valider") => "En attente validation achat2",                   
-                ("achat1", "refuser") => "Refusé achat1",
-                ("achat2", "valider") => demande.Utilisateur?.ChefId == null
-                    ? "En attente confirmation finance"
-                    : "En attente validation chef",
-                ("achat2", "refuser") => "Refusé achat2",
-                ("finance", "valider") => "En attente validation directeur",
-                ("finance", "refuser") => "Refusé finance",
-                ("directeur", "valider") => "Bon de commande",
-                ("directeur", "refuser") => "Refusé directeur",
-                _ => demande.Statut*/
+                return BadRequest(new { message = "Merci de saisir un prix pour chaque article (PUT /details) avant de valider." });
+            }
+
+            var statutAvant = demande.Statut; //  mémorisé pour détecter un no-op
+            bool isFirstChefValidation = demande.DateValidationAchat1 == null && demande.DateValidationAchat2 == null;
+
+            demande.Statut = (roleClaim, action, isFirstChefValidation) switch
+            {
+                ("chef", "valider", true) => "En attente validation achat1",
+                ("chef", "valider", false) => "En attente confirmation finance",
+                ("chef", "refuser", _) => "Refusé chef",
+                ("achat1", "valider", _) => "En attente validation achat2",
+                ("achat1", "refuser", _) => "Refusé achat1",
+                ("achat2", "valider", _) => "En attente validation chef",
+                ("achat2", "refuser", _) => "Refusé achat2",
+                ("finance", "valider", _) => "En attente validation directeur",
+                ("finance", "refuser", _) => "Refusé finance",
+                ("directeur", "valider", _) => "Bon de commande",
+                ("directeur", "refuser", _) => "Refusé directeur",
+
+                //  admin peut forcer la transition normalement associée au statut courant
+                ("admin", "valider", _) => AdminForcerValidation(statutAvant, isFirstChefValidation),
+                ("admin", "refuser", _) => AdminForcerRefus(statutAvant),
+
+                _ => statutAvant
             };
-            if (roleClaim == "achat1" && dto.Action.ToLower() == "valider")
+
+            //  Si rien n'a changé, on le signale explicitement au lieu de renvoyer un faux succès
+            if (demande.Statut == statutAvant)
+            {
+                return BadRequest(new
+                {
+                    message = $"Transition impossible : rôle='{roleClaim}', action='{action}', statutActuel='{statutAvant}'.",
+                    statutActuel = statutAvant
+                });
+            }
+
+            if (roleClaim == "achat1" && action == "valider")
                 demande.DateValidationAchat1 = DateTime.Now;
 
-            if (roleClaim == "achat2" && dto.Action.ToLower() == "valider")
+            if (roleClaim == "achat2" && action == "valider")
                 demande.DateValidationAchat2 = DateTime.Now;
 
-            if (roleClaim == "chef" && dto.Action.ToLower() == "valider")
+            if (roleClaim == "chef" && action == "valider")
                 demande.DateValidateChef = DateTime.Now;
 
-            if (roleClaim == "finance" && dto.Action.ToLower() == "valider")
+            if (roleClaim == "finance" && action == "valider")
                 demande.DateValidateFinance = DateTime.Now;    
 
-            if (roleClaim == "directeur" && dto.Action.ToLower() == "valider")
+            if (roleClaim == "directeur" && action == "valider")
                 demande.DateValidateDirecteur = DateTime.Now;    
             //  Si refus → réintégrer le montant réservé dans le budget du Capex
             if (demande.Statut.StartsWith("Refusé")
@@ -391,7 +411,7 @@ namespace Purse.Backend.Controllers
                                 $"Nouvelle demande #{id} à valider",
                                 $"La demande <b>#{id}</b> a été validée par le chef et attend votre validation.");
 
-                            _context.Notifications.Add(new Notification
+                            if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                             {
                                 DemandeId = id,
                                 UtilisateurId = achat1User.Id,
@@ -416,7 +436,7 @@ namespace Purse.Backend.Controllers
                                 $"Nouvelle demande #{id} à valider",
                                 $"La demande <b>#{id}</b> a été pré-validée par Achat1 et attend votre validation.");
 
-                            _context.Notifications.Add(new Notification
+                            if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                             {
                                 DemandeId = id,
                                 UtilisateurId = chefUser.Id,
@@ -437,7 +457,7 @@ namespace Purse.Backend.Controllers
                             $"Nouvelle demande #{id} à valider",
                             $"La demande <b>#{id}</b> a été validée par Achat1 et attend votre validation.");
 
-                        _context.Notifications.Add(new Notification
+                        if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = achat2User.Id,
@@ -457,7 +477,7 @@ namespace Purse.Backend.Controllers
                             $"Confirmation finance requise – demande #{id}",
                             $"La demande <b>#{id}</b> a été validée par Achat2 et attend votre confirmation.");
 
-                        _context.Notifications.Add(new Notification
+                        if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = financeUser.Id,
@@ -477,7 +497,7 @@ namespace Purse.Backend.Controllers
                             $"Validation directeur requise – demande #{id}",
                             $"La demande <b>#{id}</b> a été confirmée par Finance et attend votre validation.");
 
-                        _context.Notifications.Add(new Notification
+                        if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = directeurUser.Id,
@@ -496,7 +516,7 @@ namespace Purse.Backend.Controllers
                             $"✅ Demande #{id} approuvée",
                             $"Votre demande <b>#{id}</b> a été approuvée par le directeur et est passée en <b>Bon de commande</b>.");
 
-                        _context.Notifications.Add(new Notification
+                        if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = demande.UtilisateurId,
@@ -520,7 +540,7 @@ namespace Purse.Backend.Controllers
                             $"❌ Demande #{id} refusée",
                             $"Votre demande <b>#{id}</b> a été refusée.<br>Commentaire : {commentaire}");
 
-                        _context.Notifications.Add(new Notification
+                        if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = demande.UtilisateurId,
@@ -533,7 +553,23 @@ namespace Purse.Backend.Controllers
                     break;
             }
 
-            try { _context.SaveChanges(); } catch (Exception ex) { Console.WriteLine("[WARN] SaveChanges Statut echoue: " + ex.Message); }
+            //  Correctif principal : on ne renvoie plus 200 OK si SaveChanges échoue.
+            //  Les notifications ne sont plus ajoutées au ChangeTracker tant que
+            //  NotificationsPersistanceActive = false, donc ce SaveChanges ne porte
+            //  plus que sur la demande elle-même (statut, dates, commentaire, budget).
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[ERROR] SaveChanges Statut echoue: " + ex.Message);
+                return StatusCode(500, new
+                {
+                    message = "Erreur lors de la mise à jour du statut, aucune modification n'a été enregistrée.",
+                    erreur = ex.InnerException?.Message ?? ex.Message
+                });
+            }
 
             return Ok(new
             {
@@ -542,6 +578,29 @@ namespace Purse.Backend.Controllers
                 budgetRestant = demande.Capex?.BudgetRestant
             });
         }
+
+        //  Helpers pour permettre au rôle admin de forcer n'importe quelle transition,
+        //  en se basant sur le statut courant plutôt que sur un rôle fixe.
+        private static string AdminForcerValidation(string statutActuel, bool isFirstChefValidation) => statutActuel switch
+        {
+            "En attente validation chef" => isFirstChefValidation ? "En attente validation achat1" : "En attente confirmation finance",
+            "En attente validation achat1" => "En attente validation achat2",
+            "En attente validation achat2" => "En attente validation chef",
+            "En attente confirmation finance" => "En attente validation directeur",
+            "En attente validation directeur" => "Bon de commande",
+            _ => statutActuel
+        };
+
+        private static string AdminForcerRefus(string statutActuel) => statutActuel switch
+        {
+            "En attente validation chef" => "Refusé chef",
+            "En attente validation achat1" => "Refusé achat1",
+            "En attente validation achat2" => "Refusé achat2",
+            "En attente confirmation finance" => "Refusé finance",
+            "En attente validation directeur" => "Refusé directeur",
+            _ => statutActuel
+        };
+
         [HttpGet("{id}")]
         [Authorize]
         public IActionResult GetDemande(int id)
@@ -576,7 +635,20 @@ namespace Purse.Backend.Controllers
             }
 
             demande.UpdatedAt = DateTime.Now;
-            _context.SaveChanges();
+
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[ERROR] SaveChanges UpdateDetails echoue: " + ex.Message);
+                return StatusCode(500, new
+                {
+                    message = "Erreur lors de la mise à jour des prix, aucune modification n'a été enregistrée.",
+                    erreur = ex.InnerException?.Message ?? ex.Message
+                });
+            }
 
             return Ok(new { message = "Devis mis à jour" });
         }

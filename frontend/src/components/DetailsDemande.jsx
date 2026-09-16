@@ -68,6 +68,7 @@ const DetailsDemande = ({ open, onClose, demande }) => {
     const prix = parseFloat(d.prix);
     return sum + (isNaN(prix) ? 0 : prix * d.quantite);
   }, 0);
+  const isRefused = demande.statut?.toLowerCase().includes("refus");
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -133,6 +134,22 @@ const DetailsDemande = ({ open, onClose, demande }) => {
             <Typography variant="body1">{devise}</Typography>
           </Box>
 
+          <Box>
+            <Typography variant="caption" color="primary" fontWeight={700} textTransform="uppercase">
+              Justification de la demande
+            </Typography>
+            <Typography variant="body1">{demande.justification || "—"}</Typography>
+          </Box>
+
+          {isRefused && (
+            <Box>
+              <Typography variant="caption" color="error" fontWeight={700} textTransform="uppercase">
+                Raison de refus
+              </Typography>
+              <Typography variant="body1">{demande.commentaire || "—"}</Typography>
+            </Box>
+          )}
+
 
 {demande.fichierPath && (
 <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, mb: 3 }}>
@@ -151,7 +168,7 @@ const DetailsDemande = ({ open, onClose, demande }) => {
    
 
 
-          {demande.commentaire && (
+          {!isRefused && demande.commentaire && (
             <Box sx={{ gridColumn: "1 / -1" }}>
               <Typography variant="caption" color="primary" fontWeight={700} textTransform="uppercase">
                 Commentaire
@@ -162,7 +179,11 @@ const DetailsDemande = ({ open, onClose, demande }) => {
         </Box>
 
         {/* ─── Dates de validation ─── */}
-        {(demande.dateValidationAchat1 || demande.dateValidationAchat2) && (
+        {(demande.dateValidationAchat1 ||
+          demande.dateValidationAchat2 ||
+          demande.dateValidateChef ||
+          demande.dateValidateFinance ||
+          demande.dateValidateDirecteur) && (
           <>
             <Divider sx={{ mb: 2 }} />
             <Typography variant="subtitle1" fontWeight={700} mb={1.5}>
@@ -184,6 +205,33 @@ const DetailsDemande = ({ open, onClose, demande }) => {
                   <Box>
                     <Typography variant="caption" color="text.secondary">Validé Achat 2</Typography>
                     <Typography variant="body2" fontWeight={700}>{formatDate(demande.dateValidationAchat2)}</Typography>
+                  </Box>
+                </Box>
+              )}
+              {demande.dateValidateChef && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, bgcolor: "#f0fff4", borderRadius: 2, border: "1px solid #4caf50" }}>
+                  <CheckCircleIcon color="success" fontSize="small" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Validé Chef</Typography>
+                    <Typography variant="body2" fontWeight={700}>{formatDate(demande.dateValidateChef)}</Typography>
+                  </Box>
+                </Box>
+              )}
+              {demande.dateValidateFinance && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, bgcolor: "#f0fff4", borderRadius: 2, border: "1px solid #4caf50" }}>
+                  <CheckCircleIcon color="success" fontSize="small" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Validé Finance</Typography>
+                    <Typography variant="body2" fontWeight={700}>{formatDate(demande.dateValidateFinance)}</Typography>
+                  </Box>
+                </Box>
+              )}
+              {demande.dateValidateDirecteur && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, bgcolor: "#f0fff4", borderRadius: 2, border: "1px solid #4caf50" }}>
+                  <CheckCircleIcon color="success" fontSize="small" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Validé Directeur</Typography>
+                    <Typography variant="body2" fontWeight={700}>{formatDate(demande.dateValidateDirecteur)}</Typography>
                   </Box>
                 </Box>
               )}

@@ -99,7 +99,7 @@ const CreerDemande = () => {
 
     const formData = new FormData();
     if (avecCapex === "oui") formData.append("capexId", capexId);
-    if (avecCapex === "non") formData.append("justification", justification);
+    formData.append("justification", justification);
 
     // Les details : envoyer chaque item séparément
     filtered.forEach((item, index) => {
@@ -184,18 +184,16 @@ const CreerDemande = () => {
               ))}
             </TextField>
           )}
-          {avecCapex === "non" && (
-            <TextField
-              label="Objet / Justification de la demande"
-              value={justification}
-              onChange={(e) => setJustification(e.target.value)}
-              fullWidth
-              multiline
-              rows={3}
-              sx={{ mt: 2 }}
-              placeholder="Ex: Achat de matériel pour le projet X..."
-            />
-          )}
+          <TextField
+            label={avecCapex === "oui" ? "Justification / Objet (Capex)" : "Objet / Justification de la demande"}
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
+            sx={{ mt: 2 }}
+            placeholder="Ex: Achat de matériel pour le projet X..."
+          />
         </Paper>
 
         {/* ─── Articles ─── */}

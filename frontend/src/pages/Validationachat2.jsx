@@ -250,7 +250,7 @@ const ValidationAchat2 = () => {
           <DialogContent>
             <Typography variant="body2" color="text.secondary" mb={2}>
               {actionType === "valider"
-                ? "La demande sera envoyée au service Finance."
+                ? "La demande sera envoyée "
                 : "La demande sera marquée comme refusée."}
             </Typography>
            {actionType === "refuser" && (
