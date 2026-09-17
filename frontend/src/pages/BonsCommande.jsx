@@ -234,7 +234,7 @@ export default function SuiviPO() {
   const handleConfirmDownload = async () => {
     const delai = parseInt(delaiInput) || 60;
 
-    // ✅ Sauvegarder dans la base de données
+    // Sauvegarder dans la base de données
     await axios.put(
       `http://localhost:5056/api/bonscommande/${selectedBon.id}/delai`,
       delai,
@@ -246,7 +246,7 @@ export default function SuiviPO() {
       }
     );
 
-    // ✅ Mettre à jour localement
+    // Mettre à jour localement
     setBons(prev => prev.map(b =>
       b.id === selectedBon.id ? { ...b, delaiPaiement: delai } : b
     ));

@@ -15,12 +15,7 @@ namespace Purse.Backend.Controllers
         private readonly ApplicationDbContext _context;
         private readonly EmailNotificationService _emailService;
 
-        //  La table "Notifications" n'existe pas dans cette base (erreur SQL "Nom d'objet
-        //  'Notifications' non valide"). Tant qu'elle n'est pas créée, on désactive la
-        //  persistance en base des notifications pour ne pas bloquer le workflow ni faire
-        //  échouer un SaveChanges à chaque appel. Les emails continuent d'être envoyés
-        //  normalement (_emailService), indépendamment de ce flag.
-        //  → Repasser à true dès que la table Notifications existe (migration EF appliquée).
+    
         private const bool NotificationsPersistanceActive = false;
 
         public DemandesController(ApplicationDbContext context, EmailNotificationService emailService)
@@ -383,7 +378,7 @@ namespace Purse.Backend.Controllers
             int currentUserId = 0;
             if (!string.IsNullOrEmpty(userIdClaim)) int.TryParse(userIdClaim, out currentUserId);
 
-            // Workflow cible (spec finale 17/09) :
+            // Workflow cible () :
             // - employe (role=employe) : chef -> achat1 -> achat2 -> chef (2e fois) -> finance -> directeur
             // - achat1 : chef(achat2) -> achat1 -> achat2 -> finance -> directeur (pas de 2e chef)
             // - chef|achat2|finance|directeur : achat1 -> achat2 -> finance -> directeur (pas de chef)
