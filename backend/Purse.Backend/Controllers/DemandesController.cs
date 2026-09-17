@@ -383,18 +383,26 @@ namespace Purse.Backend.Controllers
             int currentUserId = 0;
             if (!string.IsNullOrEmpty(userIdClaim)) int.TryParse(userIdClaim, out currentUserId);
 
-            // Workflow cible (sans boucle chef après achat2) :
-            // En attente validation chef -(chef|achat2|finance|directeur)-> achat1 -(achat1)-> achat2 -(achat2)-> finance -(finance)-> directeur -> Bon de commande
+            // Workflow cible (spec finale 17/09) :
+            // - employe (role=employe) : chef -> achat1 -> achat2 -> chef (2e fois) -> finance -> directeur
+            // - achat1 : chef(achat2) -> achat1 -> achat2 -> finance -> directeur (pas de 2e chef)
+            // - chef|achat2|finance|directeur : achat1 -> achat2 -> finance -> directeur (pas de chef)
             // Les rôles achat2/finance/directeur peuvent valider en tant que chef s'ils sont ChefId du demandeur.
             bool estChefLike = roleClaim is "chef" or "achat2" or "finance" or "directeur";
             string? nouveauStatut = null;
-            // Vérification ownership pour étape chef
             bool estChefDuDemandeur = demande.Utilisateur?.ChefId == currentUserId;
+            var roleCreateur = demande.Utilisateur?.Role?.ToLower().Trim();
+            bool isEmployeCreator = roleCreateur == "employe";
+            // 2e passage chef uniquement pour les demandes créées par un employe (qui a un ChefId)
+            bool isSecondChefPassage = demande.DateValidationAchat1 != null && demande.DateValidationAchat2 != null;
 
             nouveauStatut = (statutAvant, roleClaim, action) switch
             {
-                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") => "En attente validation achat1",
-                ("En attente validation chef", "admin", "valider") => "En attente validation achat1",
+                // 1er ou 2e passage chef -> distinction pour la destination
+                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && !isSecondChefPassage => "En attente validation achat1",
+                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && isSecondChefPassage => "En attente confirmation finance",
+                ("En attente validation chef", "admin", "valider") when !isSecondChefPassage => "En attente validation achat1",
+                ("En attente validation chef", "admin", "valider") when isSecondChefPassage => "En attente confirmation finance",
                 ("En attente validation chef", var r, "refuser") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "admin") && (estChefDuDemandeur || r == "admin") => "Refusé chef",
 
                 ("En attente validation achat1", "achat1", "valider") => "En attente validation achat2",
@@ -402,8 +410,11 @@ namespace Purse.Backend.Controllers
                 ("En attente validation achat1", "achat1", "refuser") => "Refusé achat1",
                 ("En attente validation achat1", "admin", "refuser") => "Refusé achat1",
 
-                ("En attente validation achat2", "achat2", "valider") => "En attente confirmation finance",
-                ("En attente validation achat2", "admin", "valider") => "En attente confirmation finance",
+                // achat2 : pour employe -> retour chef (2e validation), sinon -> finance direct
+                ("En attente validation achat2", "achat2", "valider") when isEmployeCreator => "En attente validation chef",
+                ("En attente validation achat2", "achat2", "valider") when !isEmployeCreator => "En attente confirmation finance",
+                ("En attente validation achat2", "admin", "valider") when isEmployeCreator => "En attente validation chef",
+                ("En attente validation achat2", "admin", "valider") when !isEmployeCreator => "En attente confirmation finance",
                 ("En attente validation achat2", "achat2", "refuser") => "Refusé achat2",
                 ("En attente validation achat2", "admin", "refuser") => "Refusé achat2",
 
@@ -668,12 +679,12 @@ namespace Purse.Backend.Controllers
             });
         }
 
-        //  Helpers legacy conservés pour compat (workflow simplifié sans seconde boucle chef)
+        //  Helpers legacy conservés pour compat (avec double chef uniquement pour employe)
         private static string AdminForcerValidation(string statutActuel, bool isFirstChefValidation) => statutActuel switch
         {
-            "En attente validation chef" => "En attente validation achat1",
+            "En attente validation chef" => isFirstChefValidation ? "En attente validation achat1" : "En attente confirmation finance",
             "En attente validation achat1" => "En attente validation achat2",
-            "En attente validation achat2" => "En attente confirmation finance",
+            "En attente validation achat2" => "En attente validation chef", // legacy employe ; non-employe géré dans switch principal
             "En attente confirmation finance" => "En attente validation directeur",
             "En attente validation directeur" => "Bon de commande",
             _ => statutActuel
