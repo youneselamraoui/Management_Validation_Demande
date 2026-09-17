@@ -150,9 +150,11 @@ namespace Purse.Backend.Controllers
         [HttpGet("chefs")]
         public IActionResult GetChefs()
         {
+            // Par spec : achat2, finance et directeur sont aussi des chefs
+            var rolesChef = new[] { "chef", "achat2", "finance", "directeur" };
             var chefs = _context.Utilisateurs
-                .Where(u => u.Role == "chef")
-                .Select(u => new { u.Id, u.Nom })
+                .Where(u => rolesChef.Contains(u.Role.ToLower()))
+                .Select(u => new { u.Id, u.Nom, u.Role })
                 .ToList();
 
             return Ok(chefs);

@@ -29,7 +29,18 @@ namespace Purse.Backend.Controllers
             _emailService = emailService;
         }
 
-        // ─── Créer une demande ───────────────────────────────────────────────               
+        // ─── Créer une demande ───────────────────────────────────────────────
+        // Workflow validé (spec utilisateur) :
+        // - employe -> Chef (chef|achat2|finance|directeur) -> achat1 (prix) -> achat2 -> finance -> directeur -> Bon de commande
+        // - achat1   -> Chef (achat2) -> achat1 -> achat2 -> finance -> directeur
+        // - chef | achat2 | finance | directeur -> PAS de validation chef : direct achat1 -> achat2 -> finance -> directeur
+        private static readonly HashSet<string> RolesSansChef = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "chef", "achat2", "finance", "directeur", "admin"
+        };
+
+        private static bool EstExempteChef(string? role) => !string.IsNullOrEmpty(role) && RolesSansChef.Contains(role.Trim());
+
         [HttpPost]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Create([FromForm] CreateDemandeDto dto)
@@ -59,6 +70,11 @@ namespace Purse.Backend.Controllers
                 fichierPath = $"/uploads/demandes/{fileName}"; // chemin relatif à sauvegarder en BDD
             }
 
+            var roleCreateur = user.Role?.ToLower().Trim();
+            var statutInitial = EstExempteChef(roleCreateur)
+                ? "En attente validation achat1"
+                : "En attente validation chef";
+
             var demande = new Demande
             {
                 UtilisateurId = userId,
@@ -67,7 +83,7 @@ namespace Purse.Backend.Controllers
                 FichierPath = fichierPath,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
-                Statut = "En attente validation chef",
+                Statut = statutInitial,
 
                 Details = dto.Details.Select(d => new DetailsDemande
                 {
@@ -81,6 +97,7 @@ namespace Purse.Backend.Controllers
             await _context.SaveChangesAsync();
             bool emailCreateurEnvoye = false;
             bool emailChefEnvoye = false;
+            bool emailAchat1Envoye = false;
 
             if (!string.IsNullOrEmpty(user.Email) && user.Active == true)
             {
@@ -97,19 +114,42 @@ namespace Purse.Backend.Controllers
                 });
             }
 
-            var chefUser = user.ChefId.HasValue ? await _context.Utilisateurs.FirstOrDefaultAsync(u => u.Id == user.ChefId.Value && u.Active == true) : null;
-            if (chefUser != null && !string.IsNullOrEmpty(chefUser.Email))
+            if (statutInitial == "En attente validation chef")
             {
-                emailChefEnvoye = _emailService.SendNotification(chefUser.Email,
-                    $"Nouvelle demande #{demande.Id} à valider",
-                    $"<b>{user.Nom}</b> a soumis une nouvelle demande <b>#{demande.Id}</b> qui attend votre validation.");
-                if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
+                var chefUser = user.ChefId.HasValue ? await _context.Utilisateurs.FirstOrDefaultAsync(u => u.Id == user.ChefId.Value && u.Active == true) : null;
+                if (chefUser != null && !string.IsNullOrEmpty(chefUser.Email))
                 {
-                    DemandeId = demande.Id,
-                    Message = $"Nouvelle demande #{demande.Id} à valider (Chef)",
-                    DateEnvoi = DateTime.Now,
-                    Demande = demande
-                });
+                    emailChefEnvoye = _emailService.SendNotification(chefUser.Email,
+                        $"Nouvelle demande #{demande.Id} à valider",
+                        $"<b>{user.Nom}</b> ({roleCreateur}) a soumis une nouvelle demande <b>#{demande.Id}</b> qui attend votre validation.");
+                    if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
+                    {
+                        DemandeId = demande.Id,
+                        Message = $"Nouvelle demande #{demande.Id} à valider (Chef)",
+                        DateEnvoi = DateTime.Now,
+                        Demande = demande
+                    });
+                }
+            }
+            else
+            {
+                // Pas de chef : notifier directement achat1 pour insertion des prix
+                var achat1User = _context.Utilisateurs.FirstOrDefault(u => u.Role.ToLower() == "achat1" && u.Active == true);
+                if (!string.IsNullOrEmpty(achat1User?.Email))
+                {
+                    emailAchat1Envoye = _emailService.SendNotification(achat1User.Email,
+                        $"Nouvelle demande #{demande.Id} - insertion prix requise",
+                        $"<b>{user.Nom}</b> ({roleCreateur}) a soumis la demande <b>#{demande.Id}</b> ({statutInitial}). Veuillez insérer les prix.");
+                    if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
+                    {
+                        DemandeId = demande.Id,
+                        UtilisateurId = achat1User.Id,
+                        Message = $"Demande #{demande.Id} en attente insertion prix (Achat1) - création par {roleCreateur}",
+                        DateEnvoi = DateTime.Now,
+                        Demande = demande,
+                        Utilisateur = achat1User
+                    });
+                }
             }
 
             try { await _context.SaveChangesAsync(); } catch (Exception ex) { Console.WriteLine($"[WARN] Notifications SaveChanges échoué: {ex.Message}"); }
@@ -139,7 +179,8 @@ namespace Purse.Backend.Controllers
                 Notifications = new
                 {
                     EmailCreateur = emailCreateurEnvoye,
-                    EmailChef = emailChefEnvoye
+                    EmailChef = emailChefEnvoye,
+                    EmailAchat1 = emailAchat1Envoye
                 }
             };
 
@@ -220,8 +261,10 @@ namespace Purse.Backend.Controllers
         };
 
         // ─── GET /chef ───────────────────────────────────────────────────────
+        // Chef au sens large : employé dont le ChefId pointe vers l'utilisateur connecté.
+        // Par spec : chef, achat2, finance, directeur sont tous des chefs potentiels.
         [HttpGet("chef")]
-        [Authorize(Roles = "chef,admin")]
+        [Authorize(Roles = "chef,achat2,finance,directeur,admin")]
         public IActionResult GetDemandesChef()
         {
             var userIdClaim = User.FindFirst("id")?.Value;
@@ -335,33 +378,58 @@ namespace Purse.Backend.Controllers
                 return BadRequest(new { message = "Merci de saisir un prix pour chaque article (PUT /details) avant de valider." });
             }
 
-            var statutAvant = demande.Statut; //  mémorisé pour détecter un no-op
-            bool isFirstChefValidation = demande.DateValidationAchat1 == null && demande.DateValidationAchat2 == null;
+            var statutAvant = demande.Statut;
+            var userIdClaim = User.FindFirst("id")?.Value;
+            int currentUserId = 0;
+            if (!string.IsNullOrEmpty(userIdClaim)) int.TryParse(userIdClaim, out currentUserId);
 
-            demande.Statut = (roleClaim, action, isFirstChefValidation) switch
+            // Workflow cible (sans boucle chef après achat2) :
+            // En attente validation chef -(chef|achat2|finance|directeur)-> achat1 -(achat1)-> achat2 -(achat2)-> finance -(finance)-> directeur -> Bon de commande
+            // Les rôles achat2/finance/directeur peuvent valider en tant que chef s'ils sont ChefId du demandeur.
+            bool estChefLike = roleClaim is "chef" or "achat2" or "finance" or "directeur";
+            string? nouveauStatut = null;
+            // Vérification ownership pour étape chef
+            bool estChefDuDemandeur = demande.Utilisateur?.ChefId == currentUserId;
+
+            nouveauStatut = (statutAvant, roleClaim, action) switch
             {
-                ("chef", "valider", true) => "En attente validation achat1",
-                ("chef", "valider", false) => "En attente confirmation finance",
-                ("chef", "refuser", _) => "Refusé chef",
-                ("achat1", "valider", _) => "En attente validation achat2",
-                ("achat1", "refuser", _) => "Refusé achat1",
-                ("achat2", "valider", _) => "En attente validation chef",
-                ("achat2", "refuser", _) => "Refusé achat2",
-                ("finance", "valider", _) => "En attente validation directeur",
-                ("finance", "refuser", _) => "Refusé finance",
-                ("directeur", "valider", _) => "Bon de commande",
-                ("directeur", "refuser", _) => "Refusé directeur",
+                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") => "En attente validation achat1",
+                ("En attente validation chef", "admin", "valider") => "En attente validation achat1",
+                ("En attente validation chef", var r, "refuser") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "admin") && (estChefDuDemandeur || r == "admin") => "Refusé chef",
 
-                //  admin peut forcer la transition normalement associée au statut courant
-                ("admin", "valider", _) => AdminForcerValidation(statutAvant, isFirstChefValidation),
-                ("admin", "refuser", _) => AdminForcerRefus(statutAvant),
+                ("En attente validation achat1", "achat1", "valider") => "En attente validation achat2",
+                ("En attente validation achat1", "admin", "valider") => "En attente validation achat2",
+                ("En attente validation achat1", "achat1", "refuser") => "Refusé achat1",
+                ("En attente validation achat1", "admin", "refuser") => "Refusé achat1",
 
-                _ => statutAvant
+                ("En attente validation achat2", "achat2", "valider") => "En attente confirmation finance",
+                ("En attente validation achat2", "admin", "valider") => "En attente confirmation finance",
+                ("En attente validation achat2", "achat2", "refuser") => "Refusé achat2",
+                ("En attente validation achat2", "admin", "refuser") => "Refusé achat2",
+
+                ("En attente confirmation finance", "finance", "valider") => "En attente validation directeur",
+                ("En attente confirmation finance", "admin", "valider") => "En attente validation directeur",
+                ("En attente confirmation finance", "finance", "refuser") => "Refusé finance",
+                ("En attente confirmation finance", "admin", "refuser") => "Refusé finance",
+
+                ("En attente validation directeur", "directeur", "valider") => "Bon de commande",
+                ("En attente validation directeur", "admin", "valider") => "Bon de commande",
+                ("En attente validation directeur", "directeur", "refuser") => "Refusé directeur",
+                ("En attente validation directeur", "admin", "refuser") => "Refusé directeur",
+                _ => null
             };
 
-            //  Si rien n'a changé, on le signale explicitement au lieu de renvoyer un faux succès
-            if (demande.Statut == statutAvant)
+            if (nouveauStatut == null)
             {
+                // Si rôle chef-like tente hors statut chef, message explicite
+                if (estChefLike && statutAvant != "En attente validation chef")
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Transition impossible : rôle='{roleClaim}', action='{action}', statutActuel='{statutAvant}'. Étape chef uniquement sur 'En attente validation chef'.",
+                        statutActuel = statutAvant
+                    });
+                }
                 return BadRequest(new
                 {
                     message = $"Transition impossible : rôle='{roleClaim}', action='{action}', statutActuel='{statutAvant}'.",
@@ -369,20 +437,41 @@ namespace Purse.Backend.Controllers
                 });
             }
 
+            // Ownership check final pour chef (sécurité)
+            if (statutAvant == "En attente validation chef" && estChefLike && roleClaim != "admin" && !estChefDuDemandeur)
+            {
+                return BadRequest(new { message = "Vous n'êtes pas le chef de ce demandeur.", statutActuel = statutAvant });
+            }
+
+            demande.Statut = nouveauStatut;
+
             if (roleClaim == "achat1" && action == "valider")
                 demande.DateValidationAchat1 = DateTime.Now;
 
             if (roleClaim == "achat2" && action == "valider")
                 demande.DateValidationAchat2 = DateTime.Now;
 
-            if (roleClaim == "chef" && action == "valider")
+            if (estChefLike && action == "valider" && statutAvant == "En attente validation chef")
                 demande.DateValidateChef = DateTime.Now;
 
             if (roleClaim == "finance" && action == "valider")
-                demande.DateValidateFinance = DateTime.Now;    
+                demande.DateValidateFinance = DateTime.Now;
 
             if (roleClaim == "directeur" && action == "valider")
-                demande.DateValidateDirecteur = DateTime.Now;    
+                demande.DateValidateDirecteur = DateTime.Now;
+
+            // Admin pose aussi les dates selon le statut traversé
+            if (roleClaim == "admin" && action == "valider")
+            {
+                switch (statutAvant)
+                {
+                    case "En attente validation chef": demande.DateValidateChef = DateTime.Now; break;
+                    case "En attente validation achat1": demande.DateValidationAchat1 = DateTime.Now; break;
+                    case "En attente validation achat2": demande.DateValidationAchat2 = DateTime.Now; break;
+                    case "En attente confirmation finance": demande.DateValidateFinance = DateTime.Now; break;
+                    case "En attente validation directeur": demande.DateValidateDirecteur = DateTime.Now; break;
+                }
+            }
             //  Si refus → réintégrer le montant réservé dans le budget du Capex
             if (demande.Statut.StartsWith("Refusé")
                 && demande.Capex != null
@@ -579,13 +668,12 @@ namespace Purse.Backend.Controllers
             });
         }
 
-        //  Helpers pour permettre au rôle admin de forcer n'importe quelle transition,
-        //  en se basant sur le statut courant plutôt que sur un rôle fixe.
+        //  Helpers legacy conservés pour compat (workflow simplifié sans seconde boucle chef)
         private static string AdminForcerValidation(string statutActuel, bool isFirstChefValidation) => statutActuel switch
         {
-            "En attente validation chef" => isFirstChefValidation ? "En attente validation achat1" : "En attente confirmation finance",
+            "En attente validation chef" => "En attente validation achat1",
             "En attente validation achat1" => "En attente validation achat2",
-            "En attente validation achat2" => "En attente validation chef",
+            "En attente validation achat2" => "En attente confirmation finance",
             "En attente confirmation finance" => "En attente validation directeur",
             "En attente validation directeur" => "Bon de commande",
             _ => statutActuel

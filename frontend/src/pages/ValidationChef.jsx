@@ -60,6 +60,9 @@ const ValidationChef = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
+  const rolesChefLike = ["chef", "achat2", "finance", "directeur", "admin"];
+  const canValidateChef = rolesChefLike.includes(role);
+
   // ── logique originale inchangée ──
   const handleAction = (id, action) => {
     setSelectedId(id);
@@ -84,6 +87,8 @@ const ValidationChef = () => {
       fetchDemandes();
     } catch (err) {
       console.error("Erreur mise à jour statut", err);
+      const msg = err?.response?.data?.message || "Erreur lors de l'action";
+      setSnackbar({ open: true, message: msg, severity: "error" });
     } finally {
       setConfirmOpen(false);
       setLoadingConfirmer(false);
@@ -187,8 +192,8 @@ const ValidationChef = () => {
                     </Button>
                   </Box>
 
-                  {/* Actions — logique originale : handleAction(id, action) */}
-                  {role === "chef" && (
+                  {/* Actions — chef au sens large (chef, achat2, finance, directeur) */}
+                  {canValidateChef && (
                     <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                       <Button
                         variant="contained"

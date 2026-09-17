@@ -113,11 +113,11 @@ function UpdateUtilisateur() {
             </FormControl>
 
             <FormControl fullWidth>
-              <InputLabel>Chef</InputLabel>
-              <Select label="Chef" name="chefId" value={formData.chefId ?? ""} onChange={handleChange}>
+              <InputLabel>Chef (chef / achat2 / finance / directeur)</InputLabel>
+              <Select label="Chef (chef / achat2 / finance / directeur)" name="chefId" value={formData.chefId ?? ""} onChange={handleChange}>
                 <MenuItem value="">-- Aucun chef --</MenuItem>
                 {chefs.map(c => (
-                  <MenuItem key={c.id} value={c.id}>{c.nom}</MenuItem>
+                  <MenuItem key={c.id} value={c.id}>{c.nom} {c.role ? `(${c.role})` : ""}</MenuItem>
                 ))}
               </Select>
             </FormControl>
