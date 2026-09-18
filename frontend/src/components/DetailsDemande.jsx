@@ -151,7 +151,7 @@ const DetailsDemande = ({ open, onClose, demande }) => {
           )}
 
 
-{demande.fichierPath && (
+ {demande.fichierPath && (
 <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, mb: 3 }}>
           <Box>
             <Typography variant="caption" color="primary" fontWeight={700} textTransform="uppercase">
@@ -163,6 +163,26 @@ const DetailsDemande = ({ open, onClose, demande }) => {
           </Box>
         </Box>
   )}
+
+        {/* ─── Devis PDF (3 fichiers) ─── */}
+        {(demande.cheminDevis || demande.cheminDevis2 || demande.cheminDevis3) && (
+          <Box sx={{ mb: 3, p: 2, bgcolor: "#fff5f5", borderRadius: 2, border: "1px solid #ffcdd2" }}>
+            <Typography variant="caption" color="error" fontWeight={700} textTransform="uppercase" sx={{ mb: 1, display: "block" }}>
+              Devis PDF joints
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {demande.cheminDevis && (
+                <Button variant="outlined" color="error" size="small" onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}>📄 Devis 1 PDF</Button>
+              )}
+              {demande.cheminDevis2 && (
+                <Button variant="outlined" color="error" size="small" onClick={() => window.open(`http://localhost:5056${demande.cheminDevis2}`, "_blank")}>📄 Devis 2 PDF</Button>
+              )}
+              {demande.cheminDevis3 && (
+                <Button variant="outlined" color="error" size="small" onClick={() => window.open(`http://localhost:5056${demande.cheminDevis3}`, "_blank")}>📄 Devis 3 PDF</Button>
+              )}
+            </Box>
+          </Box>
+        )}
  
 
    

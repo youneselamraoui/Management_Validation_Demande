@@ -26,13 +26,15 @@ const RechercheDevis = () => {
   const [capexList, setCapexList]       = useState([]);
   const [capexId, setCapexId]           = useState(null);
   const [tauxChanges, setTauxChanges]   = useState([]);
-  const [uploading, setUploading]       = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState(null);
   const [snackbar, setSnackbar]         = useState({ open: false, message: "", severity: "success" });
   const [devise, setDevise]             = useState("MAD");
   const [LoadingConfirmer, setLoadingConfirmer] = useState(false);
   const [Loading, setLoding] = useState(false);
 
-  const fileInputRef = useRef(null); 
+  const fileInputRef1 = useRef(null);
+  const fileInputRef2 = useRef(null);
+  const fileInputRef3 = useRef(null);
 
   const token   = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -99,15 +101,15 @@ const RechercheDevis = () => {
     return (prix * detail.quantite);
   };
 
-  const handleUploadDevis = async (file) => {
+  const handleUploadDevis = async (file, slot = 1) => {
     if (!file) return;
-    setUploading(true);
+    setUploadingSlot(slot);
     try {
       const formData = new FormData();
       formData.append("file", file);
 
       const res = await axios.post(
-        `http://localhost:5056/api/demandes/${id}/upload-devis`,
+        `http://localhost:5056/api/demandes/${id}/upload-devis?slot=${slot}`,
         formData,
         {
           headers: {
@@ -117,15 +119,17 @@ const RechercheDevis = () => {
         }
       );
 
-      setDemande(prev => ({ ...prev, cheminDevis: res.data.chemin }));
-      setSnackbar({ open: true, message: "Devis PDF uploadé avec succès ✅", severity: "success" });
+      const key = slot === 1 ? "cheminDevis" : slot === 2 ? "cheminDevis2" : "cheminDevis3";
+      setDemande(prev => ({ ...prev, [key]: res.data.chemin }));
+      setSnackbar({ open: true, message: `Devis ${slot} PDF uploadé avec succès ✅`, severity: "success" });
     } catch (err) {
       console.error("Erreur upload", err);
-      setSnackbar({ open: true, message: "Erreur lors de l'upload du devis", severity: "error" });
+      setSnackbar({ open: true, message: `Erreur lors de l'upload du devis ${slot}`, severity: "error" });
     } finally {
-      setUploading(false);
+      setUploadingSlot(null);
       // Reset input pour permettre re-upload du même fichier
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      const ref = slot === 1 ? fileInputRef1 : slot === 2 ? fileInputRef2 : fileInputRef3;
+      if (ref.current) ref.current.value = "";
     }
   };
 
@@ -217,52 +221,121 @@ const RechercheDevis = () => {
             : "—"}
         </Typography>
 
-        {/* ✅ Bloc Upload Devis PDF */}
+        {/* ✅ Bloc Upload Devis PDF — 3 devis côte à côte */}
         <Paper sx={{ p: 2.5, mb: 3, border: "1px solid #e0e0e0", borderRadius: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
             <PictureAsPdfIcon color="error" />
             <Typography variant="h6" fontWeight={600}>Devis PDF</Typography>
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
 
-            {/* Input caché avec ref */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleUploadDevis(e.target.files[0]);
-                }
-              }}
-            />
-
-            {/* Bouton qui déclenche le click sur l'input */}
-            <Button
-              variant="outlined"
-              startIcon={uploading ? <CircularProgress size={16} /> : <UploadFileIcon />}
-              disabled={uploading}
-              onClick={() => fileInputRef.current.click()}
-            >
-              {uploading ? "Upload en cours..." : "Joindre le devis PDF"}
-            </Button>
-
-            {demande.cheminDevis ? (
-              <Chip
-                icon={<PictureAsPdfIcon />}
-                label="✅ Devis joint — Cliquer pour voir"
-                color="success"
-                variant="outlined"
-                onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}
-                sx={{ cursor: "pointer" }}
+            {/* ── Devis 1 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef1}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 1);
+                  }
+                }}
               />
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Aucun devis joint pour le moment.
-              </Typography>
-            )}
+              <Button
+                variant="outlined"
+                startIcon={uploadingSlot === 1 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef1.current.click()}
+              >
+                {uploadingSlot === 1 ? "Upload en cours..." : "Joindre le devis 1 PDF"}
+              </Button>
+              {demande.cheminDevis ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Devis 1 joint — Cliquer pour voir"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">Aucun devis 1 joint.</Typography>
+              )}
+            </Box>
+
+            {/* ── Devis 2 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef2}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 2);
+                  }
+                }}
+              />
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={uploadingSlot === 2 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef2.current.click()}
+              >
+                {uploadingSlot === 2 ? "Upload en cours..." : "Joindre le devis 2 PDF"}
+              </Button>
+              {demande.cheminDevis2 ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Devis 2 joint — Cliquer pour voir"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis2}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">Aucun devis 2 joint.</Typography>
+              )}
+            </Box>
+
+            {/* ── Devis 3 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef3}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 3);
+                  }
+                }}
+              />
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={uploadingSlot === 3 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef3.current.click()}
+              >
+                {uploadingSlot === 3 ? "Upload en cours..." : "Joindre le devis 3 PDF"}
+              </Button>
+              {demande.cheminDevis3 ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Devis 3 joint — Cliquer pour voir"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis3}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">Aucun devis 3 joint.</Typography>
+              )}
+            </Box>
           </Box>
         </Paper>
 

@@ -29,6 +29,8 @@ public class Demande
     public DateTime? DateValidateFinance { get; set; }
     public DateTime? DateValidateDirecteur { get; set; }
     public string? CheminDevis { get; set; }
+    public string? CheminDevis2 { get; set; }
+    public string? CheminDevis3 { get; set; }
 
     [NotMapped]
     public ICollection<TransactionCapex> Transactions { get; set; } = new List<TransactionCapex>();

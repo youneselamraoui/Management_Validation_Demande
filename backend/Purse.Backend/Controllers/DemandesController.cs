@@ -25,10 +25,15 @@ namespace Purse.Backend.Controllers
         }
 
         // ─── Créer une demande ───────────────────────────────────────────────
-        // Workflow validé (spec utilisateur) :
-        // - employe -> Chef (chef|achat2|finance|directeur) -> achat1 (prix) -> achat2 -> finance -> directeur -> Bon de commande
-        // - achat1   -> Chef (achat2) -> achat1 -> achat2 -> finance -> directeur
-        // - chef | achat2 | finance | directeur -> PAS de validation chef : direct achat1 -> achat2 -> finance -> directeur
+        // Workflow complet validé (spec utilisateur 18/09/2026) :
+        // 1) employe -> Chef (chef|achat2|finance|directeur selon ChefId) -> achat1 (insertion prix) -> achat2 -> Chef (2e validation) -> finance -> directeur -> Bon de commande
+        // 2) achat1   -> Chef (achat2) -> achat1 -> achat2 -> finance -> directeur -> Bon de commande
+        // 3) chef      -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
+        // 4) achat2    -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
+        // 5) finance   -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
+        // 6) directeur -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
+        // Note : employe = seul rôle avec double passage Chef (avant et après achat2). Tous les autres : 1 seul Chef ou 0 Chef.
+        // Le Chef peut être de rôle chef, achat2, finance ou directeur (EstExempteChef + GetDemandesChef autorise ces rôles comme valideur Chef si ChefId pointe vers eux).
         private static readonly HashSet<string> RolesSansChef = new(StringComparer.OrdinalIgnoreCase)
         {
             "chef", "achat2", "finance", "directeur", "admin"
@@ -37,6 +42,7 @@ namespace Purse.Backend.Controllers
         private static bool EstExempteChef(string? role) => !string.IsNullOrEmpty(role) && RolesSansChef.Contains(role.Trim());
 
         [HttpPost]
+        [Authorize]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Create([FromForm] CreateDemandeDto dto)
         {
@@ -216,6 +222,8 @@ namespace Purse.Backend.Controllers
             d.DateValidateDirecteur,
             d.RFX,
             d.CheminDevis,
+            d.CheminDevis2,
+            d.CheminDevis3,
             d.FichierPath,
             Capex = d.Capex == null ? null : new
             {
@@ -378,11 +386,12 @@ namespace Purse.Backend.Controllers
             int currentUserId = 0;
             if (!string.IsNullOrEmpty(userIdClaim)) int.TryParse(userIdClaim, out currentUserId);
 
-            // Workflow cible () :
-            // - employe (role=employe) : chef -> achat1 -> achat2 -> chef (2e fois) -> finance -> directeur
-            // - achat1 : chef(achat2) -> achat1 -> achat2 -> finance -> directeur (pas de 2e chef)
-            // - chef|achat2|finance|directeur : achat1 -> achat2 -> finance -> directeur (pas de chef)
-            // Les rôles achat2/finance/directeur peuvent valider en tant que chef s'ils sont ChefId du demandeur.
+            // Workflow cible complet (6 cas) :
+            // - employe : chef(1) -> achat1 -> achat2 -> chef(2) -> finance -> directeur
+            // - achat1 : chef(achat2) -> achat1 -> achat2 -> finance -> directeur (pas de 2e chef, isEmployeCreator=false)
+            // - chef|achat2|finance|directeur : achat1 -> achat2 -> finance -> directeur (pas de chef, EstExempteChef=true)
+            // Les rôles achat2/finance/directeur peuvent valider en tant que chef s'ils sont ChefId du demandeur (estChefDuDemandeur).
+            // isSecondChefPassage = true uniquement après que achat1 ET achat2 aient posé leurs dates -> déclenche le 2e passage chef vers finance.
             bool estChefLike = roleClaim is "chef" or "achat2" or "finance" or "directeur";
             string? nouveauStatut = null;
             bool estChefDuDemandeur = demande.Utilisateur?.ChefId == currentUserId;
@@ -958,24 +967,31 @@ namespace Purse.Backend.Controllers
         }
         [HttpPost("{id}/upload-devis")]
         [Authorize(Roles = "achat1,achat2,admin")]
-        public async Task<IActionResult> UploadDevis(int id, IFormFile file)
+        public async Task<IActionResult> UploadDevis(int id, IFormFile file, [FromQuery] int slot = 1)
         {
+            if (slot < 1 || slot > 3) return BadRequest(new { message = "Slot invalide. Valeurs attendues : 1, 2 ou 3." });
+            if (file == null || file.Length == 0) return BadRequest(new { message = "Fichier manquant." });
+
             var demande = await _context.Demandes.FindAsync(id);
             if (demande == null) return NotFound();
 
             var folder = Path.Combine("wwwroot", "uploads", "devis");
             Directory.CreateDirectory(folder);
 
-            var fileName = $"demande_{id}_{file.FileName}";
+            var fileName = $"demande_{id}_devis{slot}_{Guid.NewGuid()}_{file.FileName}";
             var path = Path.Combine(folder, fileName);
 
             using var stream = new FileStream(path, FileMode.Create);
             await file.CopyToAsync(stream);
 
-            demande.CheminDevis = $"/uploads/devis/{fileName}";
+            var chemin = $"/uploads/devis/{fileName}";
+            if (slot == 1) demande.CheminDevis = chemin;
+            else if (slot == 2) demande.CheminDevis2 = chemin;
+            else demande.CheminDevis3 = chemin;
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { chemin = demande.CheminDevis });
+            return Ok(new { chemin, slot });
         }
 
     }

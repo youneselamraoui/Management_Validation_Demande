@@ -162,25 +162,30 @@ const ValidationAchat2 = () => {
                     <Typography variant="h6" fontWeight={700} color="warning.main">
                       {total}
                     </Typography>
-                    <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-                      {demande.cheminDevis && (
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          startIcon={<PictureAsPdfIcon />}
-                          onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}
-                        >
-                          Devis PDF
-                        </Button>
-                      )}
-                        <Button
+                    <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      {[1,2,3].map(slot => {
+                        const chemin = slot === 1 ? demande.cheminDevis : slot === 2 ? demande.cheminDevis2 : demande.cheminDevis3;
+                        if (!chemin) return null;
+                        return (
+                          <Button
+                            key={slot}
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<PictureAsPdfIcon />}
+                            onClick={() => window.open(`http://localhost:5056${chemin}`, "_blank")}
+                          >
+                            Devis {slot}
+                          </Button>
+                        );
+                      })}
+                      <Button
                         variant="outlined"
                         onClick={() => setSelectedDemande(demande)}
-                    >
+                      >
                         Voir détails
-                    </Button>
-                  </Box>
+                      </Button>
+                    </Box>
                   </Box>
 
                   {/* ── Actions ── */}
