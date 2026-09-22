@@ -66,14 +66,14 @@ function ChangePassword() {
       .then(() => {
         setSnackbar({
           open: true,
-          message: "Mot de passe modifié avec succès !",
+          message: "Password changed successfully!",
           severity: "success",
         });
         setTimeout(() => navigate(-1), 1500);
       })
       .catch((err) => {
         const msg =
-          err.response?.data?.message || "Mot de passe actuel incorrect.";
+          err.response?.data?.message || "Current password is incorrect.";
         setSnackbar({ open: true, message: msg, severity: "error" });
       });
   };
@@ -83,12 +83,12 @@ function ChangePassword() {
       <Container maxWidth="sm">
         <Paper elevation={3} sx={{ p: 3, mt: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Modifier le mot de passe
+            Change Password
           </Typography>
 
           {user && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Compte : <strong>{user.nom}</strong> — {user.email}
+              Account: <strong>{user.nom}</strong> — {user.email}
             </Typography>
           )}
 
@@ -97,9 +97,9 @@ function ChangePassword() {
             onSubmit={handleSubmit}
             sx={{ display: "flex", flexDirection: "column", gap: 2 }}
           >
-            {/* Ancien mot de passe */}
+            {/* Current password */}
             <TextField
-              label="Mot de passe actuel"
+              label="Current Password"
               name="ancienMotDePasse"
               type={showOld ? "text" : "password"}
               value={formData.ancienMotDePasse}
@@ -116,10 +116,10 @@ function ChangePassword() {
               }}
             />
 
-            {/* Nouveau mot de passe */}
+            {/* New password */}
             <TextField
               fullWidth
-              label="Nouveau mot de passe"
+              label="New Password"
               name="nouveauMotDePasse"
               type={showNew ? "text" : "password"}
               value={formData.nouveauMotDePasse}
@@ -138,7 +138,7 @@ function ChangePassword() {
 
             {/* Confirmation */}
             <TextField
-              label="Confirmer le nouveau mot de passe"
+              label="Confirm New Password"
               name="confirmation"
               type={showConf ? "text" : "password"}
               value={formData.confirmation}
@@ -156,7 +156,7 @@ function ChangePassword() {
             />
 
             <Button type="submit" variant="contained" color="primary">
-              Enregistrer
+              Save
             </Button>
           </Box>
         </Paper>

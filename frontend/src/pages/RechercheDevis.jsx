@@ -26,13 +26,15 @@ const RechercheDevis = () => {
   const [capexList, setCapexList]       = useState([]);
   const [capexId, setCapexId]           = useState(null);
   const [tauxChanges, setTauxChanges]   = useState([]);
-  const [uploading, setUploading]       = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState(null);
   const [snackbar, setSnackbar]         = useState({ open: false, message: "", severity: "success" });
   const [devise, setDevise]             = useState("MAD");
   const [LoadingConfirmer, setLoadingConfirmer] = useState(false);
   const [Loading, setLoding] = useState(false);
 
-  const fileInputRef = useRef(null); 
+  const fileInputRef1 = useRef(null);
+  const fileInputRef2 = useRef(null);
+  const fileInputRef3 = useRef(null);
 
   const token   = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -64,7 +66,7 @@ const RechercheDevis = () => {
           showForm:      d.fournisseurId != null,
         })));
       } catch (err) {
-        console.error("Erreur chargement", err);
+        console.error("Loading error", err);
       } finally {
         setLoding(false);
       }
@@ -99,15 +101,15 @@ const RechercheDevis = () => {
     return (prix * detail.quantite);
   };
 
-  const handleUploadDevis = async (file) => {
+  const handleUploadDevis = async (file, slot = 1) => {
     if (!file) return;
-    setUploading(true);
+    setUploadingSlot(slot);
     try {
       const formData = new FormData();
       formData.append("file", file);
 
       const res = await axios.post(
-        `http://localhost:5056/api/demandes/${id}/upload-devis`,
+        `http://localhost:5056/api/demandes/${id}/upload-devis?slot=${slot}`,
         formData,
         {
           headers: {
@@ -117,15 +119,17 @@ const RechercheDevis = () => {
         }
       );
 
-      setDemande(prev => ({ ...prev, cheminDevis: res.data.chemin }));
-      setSnackbar({ open: true, message: "Devis PDF uploadé avec succès ✅", severity: "success" });
+      const key = slot === 1 ? "cheminDevis" : slot === 2 ? "cheminDevis2" : "cheminDevis3";
+      setDemande(prev => ({ ...prev, [key]: res.data.chemin }));
+      setSnackbar({ open: true, message: `Quote ${slot} PDF uploaded successfully ✅`, severity: "success" });
     } catch (err) {
-      console.error("Erreur upload", err);
-      setSnackbar({ open: true, message: "Erreur lors de l'upload du devis", severity: "error" });
+      console.error("Upload error", err);
+      setSnackbar({ open: true, message: `Error uploading quote ${slot}`, severity: "error" });
     } finally {
-      setUploading(false);
-      // Reset input pour permettre re-upload du même fichier
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadingSlot(null);
+      // Reset input to allow re-upload of same file
+      const ref = slot === 1 ? fileInputRef1 : slot === 2 ? fileInputRef2 : fileInputRef3;
+      if (ref.current) ref.current.value = "";
     }
   };
 
@@ -147,7 +151,7 @@ const RechercheDevis = () => {
     if (budgetDepasse) {
       setSnackbar({
         open: true,
-        message: `Budget Capex dépassé ! Total : ${totalConverti} ${devisCapex} > Restant : ${selectedCapex.budgetRestant.toLocaleString("fr-FR")} ${devisCapex}`,
+        message: `Capex budget exceeded! Total: ${totalConverti} ${devisCapex} > Remaining: ${selectedCapex.budgetRestant.toLocaleString("en-GB")} ${devisCapex}`,
         severity: "error"
       });
       return;
@@ -180,11 +184,11 @@ const RechercheDevis = () => {
         { headers: { ...headers, "Content-Type": "application/json" } }
       );
 
-      setSnackbar({ open: true, message: "Devis soumis au Achat2 ✅", severity: "success" });
+      setSnackbar({ open: true, message: "Quotes submitted to Purchasing 2 ✅", severity: "success" });
       setTimeout(() => navigate("/validation-achat1"), 1500);
     } catch (err) {
-      console.error("Erreur soumission", err);
-      setSnackbar({ open: true, message: "Erreur lors de la soumission", severity: "error" });
+      console.error("Submission error", err);
+      setSnackbar({ open: true, message: "Error during submission", severity: "error" });
     } finally {
       setLoadingConfirmer(false);
     }
@@ -206,81 +210,166 @@ const RechercheDevis = () => {
 
         {/* Header */}
         <Typography variant="h4" fontWeight={700} gutterBottom>
-          Recherche Fournisseurs — Demande #{demande.id}
+          Supplier Search — Request #{demande.id}
         </Typography>
-        <Typography variant="subtitle1" color="text.secondary" mb={3}>
+        <Typography variant="subtitle1" color="text.secondary" mb={1}>
           {demande.utilisateur?.nom} • {demande.utilisateur?.departement} •{" "}
           {demande.createdAt
-            ? new Date(demande.createdAt).toLocaleDateString("fr-FR", {
+            ? new Date(demande.createdAt).toLocaleDateString("en-GB", {
                 day: "numeric", month: "long", year: "numeric"
               })
             : "—"}
         </Typography>
 
-        {/* ✅ Bloc Upload Devis PDF */}
+        {/* ─── Requester justification (if supplier suggested) ───────── */}
+        {demande.justification && (
+          <Paper sx={{ p: 2, mb: 2, bgcolor: "#e3f2fd", border: "1px solid #90caf9", borderRadius: 2 }}>
+            <Typography variant="subtitle2" fontWeight={700} color="primary" gutterBottom>
+              Requester justification {demande.details?.some(d => d.fournisseurId) ? "(suggested supplier)" : ""}:
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{demande.justification}</Typography>
+          </Paper>
+        )}
+        {/* Alert if requester suggested a supplier */}
+        {demande.details?.some(d => d.fournisseurId) && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            The requester suggested a supplier for at least one item (see below). Check their justification above and keep or change the supplier based on your analysis.
+          </Alert>
+        )}
+
+        {/* ✅ Quote PDF Upload — 3 quotes side by side */}
         <Paper sx={{ p: 2.5, mb: 3, border: "1px solid #e0e0e0", borderRadius: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
             <PictureAsPdfIcon color="error" />
-            <Typography variant="h6" fontWeight={600}>Devis PDF</Typography>
+            <Typography variant="h6" fontWeight={600}>Quote PDFs</Typography>
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
 
-            {/* Input caché avec ref */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleUploadDevis(e.target.files[0]);
-                }
-              }}
-            />
-
-            {/* Bouton qui déclenche le click sur l'input */}
-            <Button
-              variant="outlined"
-              startIcon={uploading ? <CircularProgress size={16} /> : <UploadFileIcon />}
-              disabled={uploading}
-              onClick={() => fileInputRef.current.click()}
-            >
-              {uploading ? "Upload en cours..." : "Joindre le devis PDF"}
-            </Button>
-
-            {demande.cheminDevis ? (
-              <Chip
-                icon={<PictureAsPdfIcon />}
-                label="✅ Devis joint — Cliquer pour voir"
-                color="success"
-                variant="outlined"
-                onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}
-                sx={{ cursor: "pointer" }}
+            {/* ── Quote 1 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef1}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 1);
+                  }
+                }}
               />
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Aucun devis joint pour le moment.
-              </Typography>
-            )}
+              <Button
+                variant="outlined"
+                startIcon={uploadingSlot === 1 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef1.current.click()}
+              >
+                {uploadingSlot === 1 ? "Uploading..." : "Attach Quote 1 PDF"}
+              </Button>
+              {demande.cheminDevis ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Quote 1 attached — Click to view"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">No Quote 1 attached.</Typography>
+              )}
+            </Box>
+
+            {/* ── Quote 2 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef2}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 2);
+                  }
+                }}
+              />
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={uploadingSlot === 2 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef2.current.click()}
+              >
+                {uploadingSlot === 2 ? "Uploading..." : "Attach Quote 2 PDF"}
+              </Button>
+              {demande.cheminDevis2 ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Quote 2 attached — Click to view"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis2}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">No Quote 2 attached.</Typography>
+              )}
+            </Box>
+
+            {/* ── Quote 3 ── */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 220 }}>
+              <input
+                ref={fileInputRef3}
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleUploadDevis(e.target.files[0], 3);
+                  }
+                }}
+              />
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={uploadingSlot === 3 ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                disabled={uploadingSlot !== null}
+                onClick={() => fileInputRef3.current.click()}
+              >
+                {uploadingSlot === 3 ? "Uploading..." : "Attach Quote 3 PDF"}
+              </Button>
+              {demande.cheminDevis3 ? (
+                <Chip
+                  icon={<PictureAsPdfIcon />}
+                  label="✅ Quote 3 attached — Click to view"
+                  color="success"
+                  variant="outlined"
+                  onClick={() => window.open(`http://localhost:5056${demande.cheminDevis3}`, "_blank")}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">No Quote 3 attached.</Typography>
+              )}
+            </Box>
           </Box>
         </Paper>
 
-        {/* ─── Tableau des taux de change ─────────────────────────────────── */}
+        {/* ─── Exchange rates table ─────────────────────────────────── */}
         {demande.capexId && tauxAffiches.length > 0 && (
           <Paper sx={{ p: 2, mb: 3, bgcolor: "#fffde7", border: "1px solid #f9a825" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
               <CurrencyExchangeIcon color="warning" />
               <Typography variant="h6" fontWeight={600}>
-                Taux de change actuels (vers {devisCapex})
+                Current exchange rates (to {devisCapex})
               </Typography>
             </Box>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: "#fff8e1" }}>
-                  <TableCell><strong>Devise</strong></TableCell>
-                  <TableCell><strong>Taux vers {devisCapex}</strong></TableCell>
-                  <TableCell><strong>Exemple</strong></TableCell>
+                  <TableCell><strong>Currency</strong></TableCell>
+                  <TableCell><strong>Rate to {devisCapex}</strong></TableCell>
+                  <TableCell><strong>Example</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -298,7 +387,7 @@ const RechercheDevis = () => {
           </Paper>
         )}
 
-        {/* ─── Bloc Capex ──────────────────────────────────────────────────── */}
+        {/* ─── Capex Block ──────────────────────────────────────────────────── */}
         {demande.capexId && (
           <Paper
             sx={{
@@ -310,25 +399,25 @@ const RechercheDevis = () => {
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
               <AccountBalanceWalletIcon color={budgetDepasse ? "error" : selectedCapex ? "primary" : "disabled"} />
-              <Typography variant="h6" fontWeight={600}>Capex associé</Typography>
+              <Typography variant="h6" fontWeight={600}>Associated Capex</Typography>
               {budgetDepasse && (
-                <Chip icon={<WarningAmberIcon />} label="Budget dépassé !" color="error" size="small" />
+                <Chip icon={<WarningAmberIcon />} label="Budget exceeded!" color="error" size="small" />
               )}
             </Box>
 
             <TextField
               select
-              label="Capex (optionnel)"
+              label="Capex (optional)"
               value={capexId ?? ""}
               onChange={(e) => setCapexId(e.target.value || null)}
               fullWidth
               size="small"
               sx={{ mb: selectedCapex ? 2 : 0 }}
             >
-              <MenuItem value="">— Sans Capex —</MenuItem>
+              <MenuItem value="">— Without Capex —</MenuItem>
               {capexList.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
-                  {c.nomCapex} — Budget restant : {c.budgetRestant.toLocaleString("fr-FR")} {c.devis}
+                  {c.nomCapex} — Remaining budget: {c.budgetRestant.toLocaleString("en-GB")} {c.devis}
                 </MenuItem>
               ))}
             </TextField>
@@ -336,27 +425,27 @@ const RechercheDevis = () => {
             {selectedCapex && (
               <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Budget Total</Typography>
+                  <Typography variant="caption" color="text.secondary">Total Budget</Typography>
                   <Typography variant="body1" fontWeight={700}>
-                    {selectedCapex.budgetTotal.toLocaleString("fr-FR")} {selectedCapex.devis}
+                    {selectedCapex.budgetTotal.toLocaleString("en-GB")} {selectedCapex.devis}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Budget Restant</Typography>
+                  <Typography variant="caption" color="text.secondary">Remaining Budget</Typography>
                   <Typography variant="body1" fontWeight={700} color="primary">
-                    {selectedCapex.budgetRestant.toLocaleString("fr-FR")} {selectedCapex.devis}
+                    {selectedCapex.budgetRestant.toLocaleString("en-GB")} {selectedCapex.devis}
                   </Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Total demande (converti en {selectedCapex.devis})
+                    Request total (converted to {selectedCapex.devis})
                   </Typography>
                   <Typography variant="body1" fontWeight={700} color="warning.main">
                     {totalConverti} {selectedCapex.devis}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Restant après demande</Typography>
+                  <Typography variant="caption" color="text.secondary">Remaining after request</Typography>
                   <Typography variant="body1" fontWeight={700} color={budgetDepasse ? "error" : "success.main"}>
                     {budgetRestant !== null ? budgetRestant : "—"} {selectedCapex.devis}
                   </Typography>
@@ -366,9 +455,9 @@ const RechercheDevis = () => {
           </Paper>
         )}
 
-        {/* ─── Devise ─────────────────────────────────────────────────────── */}
+        {/* ─── Currency ─────────────────────────────────────────────────────── */}
         <Paper sx={{ p: 2, mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
-          <Typography variant="body2" fontWeight={600}>Devise de la demande :</Typography>
+          <Typography variant="body2" fontWeight={600}>Request currency:</Typography>
           <Select size="small" value={devise} onChange={(e) => setDevise(e.target.value)}>
             <MenuItem value="MAD">MAD</MenuItem>
             <MenuItem value="EUR">EUR</MenuItem>
@@ -379,18 +468,30 @@ const RechercheDevis = () => {
           </Select>
         </Paper>
 
-        {/* ─── Articles ───────────────────────────────────────────────────── */}
-        {details.map((detail, index) => (
-          <Card key={detail.id} sx={{ mb: 3 }}>
+        {/* ─── Items ───────────────────────────────────────────────────── */}
+        {details.map((detail, index) => {
+          const suggestedId = demande.details?.find(d => d.id === detail.id)?.fournisseurId;
+          const suggestedNom = suggestedId ? (fournisseurs.find(f => String(f.id) === String(suggestedId))?.nom || `#${suggestedId}`) : null;
+          const isSuggested = !!suggestedId;
+          return (
+          <Card key={detail.id} sx={{ mb: 3, border: isSuggested ? "1px solid #90caf9" : undefined }}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <Box>
                   <Typography variant="h6" fontWeight={600}>{detail.article}</Typography>
-                  <Typography variant="body2" color="text.secondary">Quantité : {detail.quantite}</Typography>
+                  <Typography variant="body2" color="text.secondary">Quantity: {detail.quantite}</Typography>
+                  {isSuggested && (
+                    <Chip
+                      label={`Supplier suggested by requester: ${suggestedNom}`}
+                      color="info"
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
+                  )}
                 </Box>
                 {!detail.showForm && (
                   <Button variant="contained" startIcon={<AddIcon />} onClick={() => toggleForm(index)} size="small">
-                    Ajouter un devis
+                    Add quote
                   </Button>
                 )}
               </Box>
@@ -398,15 +499,15 @@ const RechercheDevis = () => {
               {detail.showForm ? (
                 <Box sx={{ display: "flex", gap: 2, mt: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
                   <Box sx={{ flex: 2, minWidth: 200 }}>
-                    <Typography variant="caption" color="text.secondary">Fournisseur</Typography>
+                    <Typography variant="caption" color="text.secondary">Supplier</Typography>
                     <Select fullWidth size="small" value={detail.fournisseurId || ""} onChange={(e) => handleChange(index, "fournisseurId", e.target.value)} displayEmpty>
-                      <MenuItem value="">-- Sélectionner --</MenuItem>
+                      <MenuItem value="">-- Select --</MenuItem>
                       {fournisseurs.map(f => <MenuItem key={f.id} value={f.id}>{f.nom}</MenuItem>)}
                     </Select>
                   </Box>
 
                   <Box sx={{ flex: 1, minWidth: 120 }}>
-                    <Typography variant="caption" color="text.secondary">Prix unitaire</Typography>
+                    <Typography variant="caption" color="text.secondary">Unit price</Typography>
                     <TextField fullWidth size="small" type="number" value={detail.prix} onChange={(e) => handleChange(index, "prix", e.target.value)} placeholder="0.00" />
                   </Box>
 
@@ -431,21 +532,22 @@ const RechercheDevis = () => {
               ) : (
                 <Box sx={{ mt: 2, p: 2, bgcolor: "#f8fafc", borderRadius: 2, textAlign: "center" }}>
                   <Typography variant="body2" color="text.secondary">
-                    Aucun devis ajouté. Cliquez sur "Ajouter un devis" pour commencer.
+                    No quote added. Click "Add quote" to start.
                   </Typography>
                 </Box>
               )}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
 
         <Divider sx={{ my: 3 }} />
 
-        {/* ─── Total général ───────────────────────────────────────────────── */}
+        {/* ─── Grand total ───────────────────────────────────────────────── */}
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
           <Paper sx={{ p: 2, minWidth: 280, textAlign: "right", bgcolor: "#fafafa" }}>
             <Typography variant="body2" color="text.secondary">
-              {selectedCapex ? `Total converti (Budget ${devisCapex})` : "Total de la demande"}
+              {selectedCapex ? `Converted total (Budget ${devisCapex})` : "Request total"}
             </Typography>
             <Typography variant="h5" fontWeight={700} color={budgetDepasse ? "error" : "warning.main"}>
               {selectedCapex
@@ -455,7 +557,7 @@ const RechercheDevis = () => {
             </Typography>
             {selectedCapex && devise !== devisCapex && (
               <Typography variant="caption" color="text.secondary">
-                Montant saisi : {details.reduce((sum, d) => sum + (parseFloat(d.prix) * d.quantite || 0), 0)} {devise}
+                Entered amount: {details.reduce((sum, d) => sum + (parseFloat(d.prix) * d.quantite || 0), 0)} {devise}
               </Typography>
             )}
           </Paper>
@@ -470,10 +572,10 @@ const RechercheDevis = () => {
             onClick={handleSubmit}
             disabled={budgetDepasse || details.some(d => !d.fournisseurId || !d.prix)}
           >
-            {LoadingConfirmer ? <CircularProgress size={20} /> : "Soumettre les devis au Chef département"}
+            {LoadingConfirmer ? <CircularProgress size={20} /> : "Submit Quotes to Department Manager"}
           </Button>
           <Button variant="outlined" color="inherit" size="large" onClick={() => navigate("/validation-achat1")}>
-            Annuler
+            Cancel
           </Button>
         </Box>
 

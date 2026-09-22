@@ -20,7 +20,6 @@ namespace Purse.Backend.Controllers
 
         // GET: api/utilisateurs
         [HttpGet]
-        [HttpGet]
         public IActionResult GetAll()
         {
             var utilisateurs = _context.Utilisateurs
@@ -33,6 +32,8 @@ namespace Purse.Backend.Controllers
                     Email = u.Email,
                     Role = u.Role,
                     DepartementNom = u.Departement.Nom,
+                    DepartementId = u.DepartementId,
+                    ChefId = u.ChefId,
                     ChefNom = u.Chef != null ? u.Chef.Nom : null,
                     Active = u.Active
                 })
@@ -76,7 +77,7 @@ namespace Purse.Backend.Controllers
                 Nom = dto.Nom,
                 Email = dto.Email,
                 MotDePasse = dto.MotDePasse,
-                Role = dto.Role,
+                Role = dto.Role?.ToLower().Trim() ?? "",
                 DepartementId = dto.DepartementId,
                 ChefId = dto.ChefId,
                 Active = dto.Active
@@ -92,7 +93,10 @@ namespace Purse.Backend.Controllers
                 Email = user.Email,
                 Role = user.Role,
                 DepartementNom = _context.Departements.Find(user.DepartementId)?.Nom ?? "",
-                ChefNom = user.ChefId != null ? _context.Utilisateurs.Find(user.ChefId)?.Nom : null
+                DepartementId = user.DepartementId,
+                ChefId = user.ChefId,
+                ChefNom = user.ChefId != null ? _context.Utilisateurs.Find(user.ChefId)?.Nom : null,
+                Active = user.Active
             };
 
             return Ok(new { success = true, user = result });
@@ -108,7 +112,7 @@ namespace Purse.Backend.Controllers
             existing.Nom = dto.Nom;
             existing.Email = dto.Email;
             existing.MotDePasse = dto.MotDePasse;
-            existing.Role = dto.Role;
+            existing.Role = dto.Role?.ToLower().Trim() ?? existing.Role;
             existing.DepartementId = dto.DepartementId;
             existing.ChefId = dto.ChefId;
             existing.Active = dto.Active;
@@ -122,8 +126,10 @@ namespace Purse.Backend.Controllers
                 Nom = existing.Nom,
                 Email = existing.Email,
                 Role = existing.Role,
-                DepartementNom = existing.Departement?.Nom ?? "",
-                ChefNom = existing.Chef?.Nom,
+                DepartementNom = existing.Departement?.Nom ?? _context.Departements.Find(existing.DepartementId)?.Nom ?? "",
+                DepartementId = existing.DepartementId,
+                ChefId = existing.ChefId,
+                ChefNom = existing.Chef?.Nom ?? (existing.ChefId != null ? _context.Utilisateurs.Find(existing.ChefId)?.Nom : null),
                 Active = existing.Active
             };
 
@@ -144,9 +150,11 @@ namespace Purse.Backend.Controllers
         [HttpGet("chefs")]
         public IActionResult GetChefs()
         {
+            // Par spec : achat2, finance et directeur sont aussi des chefs
+            var rolesChef = new[] { "chef", "achat2", "finance", "directeur" };
             var chefs = _context.Utilisateurs
-                .Where(u => u.Role == "chef")
-                .Select(u => new { u.Id, u.Nom })
+                .Where(u => rolesChef.Contains(u.Role.ToLower()))
+                .Select(u => new { u.Id, u.Nom, u.Role })
                 .ToList();
 
             return Ok(chefs);

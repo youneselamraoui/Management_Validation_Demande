@@ -33,13 +33,13 @@ export default function AddTauxChange() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Taux ajouté avec succès");
+        setSnackbarMessage("Rate added successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/taux-change"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de l'ajout");
+      setSnackbarMessage(err.response?.data?.message || "Error adding rate");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -50,12 +50,12 @@ export default function AddTauxChange() {
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Ajouter un Taux de Change
+            Add Exchange Rate
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
               select
-              label="Devise Source"
+              label="Source Currency"
               value={devisSource}
               onChange={(e) => setDevisSource(e.target.value)}
               fullWidth
@@ -69,7 +69,7 @@ export default function AddTauxChange() {
 
             <TextField
               select
-              label="Devise Cible"
+              label="Target Currency"
               value={devisCible}
               onChange={(e) => setDevisCible(e.target.value)}
               fullWidth
@@ -82,7 +82,7 @@ export default function AddTauxChange() {
             </TextField>
 
             <TextField
-              label="Taux"
+              label="Rate"
               type="number"
               value={taux}
               onChange={(e) => setTaux(e.target.value)}
@@ -94,14 +94,14 @@ export default function AddTauxChange() {
 
             <Box sx={{ mt: 2 }}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/taux-change")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
           </form>

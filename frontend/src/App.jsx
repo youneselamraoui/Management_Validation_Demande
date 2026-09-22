@@ -25,10 +25,11 @@ import HistoriqueDemandes from "./pages/Historiquedemandes";
 import ValidationAchat2 from "./pages/Validationachat2";
 import ValidationFinance from "./pages/Validationfinance";
 import ValidationDirecteur from "./pages/Validationdirecteur";
-import MesDemandesApprouvees from "./pages/Mesdemandesapprouvees";
 import BonsCommande from "./pages/BonsCommande";
 import ChangePassword from "./pages/Changepassword";
 import Statistic from "./pages/Statistic";
+import InsertionSAP from "./pages/InsertionSAP";
+import ValidationEMEA from "./pages/ValidationEMEA";
 function App() {
   return (
    <AuthProvider>
@@ -58,9 +59,11 @@ function App() {
         <Route path="/validation-achat2" element={<ValidationAchat2 />} />
         <Route path="/validation-finance" element={<ValidationFinance />} />
         <Route path="/validation-directeur" element={<ValidationDirecteur />} />
-        <Route path="/mes-demandes-approuvees" element={<MesDemandesApprouvees />} />
+        {/* page mes-demandes-approuvees cachée pour tout le monde - workflow EMEA: RFX+SAP par achat1 */}
         <Route path="/suivi-po" element={<BonsCommande />} />
         <Route path="/Statistic" element={<Statistic />} />
+        <Route path="/insertion-sap" element={<InsertionSAP />} />
+        <Route path="/validation-emea" element={<ValidationEMEA />} />
         <Route path="/change-password" element={<ChangePassword />} />
       </Routes>
     </AuthProvider>

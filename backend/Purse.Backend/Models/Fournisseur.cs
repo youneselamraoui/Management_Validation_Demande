@@ -5,13 +5,13 @@ public class Fournisseur
 {
     public int Id { get; set; }
 
-    public required string Nom { get; set; }       // varchar — colonne existante
+    public required string Nom { get; set; }       // varchar — colonne existante (dbo.Fournisseurs.Nom)
 
     [NotMapped]
-    public required string Contact { get; set; }    // non persisté
+    public string? Contact { get; set; }    // non persisté
 
     [NotMapped]
-    public required string Adresse { get; set; }    // non persisté
+    public string? Adresse { get; set; }    // non persisté
 
     [NotMapped]
     public string? Tel { get; set; }                // non persisté

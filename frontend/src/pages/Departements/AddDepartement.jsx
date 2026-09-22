@@ -31,13 +31,13 @@ export default function AddDepartement() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Département ajouté avec succès");
+        setSnackbarMessage("Department added successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/departements"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de l'ajout");
+      setSnackbarMessage(err.response?.data?.message || "Error adding department");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -48,11 +48,11 @@ export default function AddDepartement() {
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Ajouter un Département
+            Add Department
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du département"
+              label="Department Name"
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               fullWidth
@@ -64,14 +64,14 @@ export default function AddDepartement() {
               variant="contained"
               sx={{ mt: 2 }}
             >
-              Enregistrer
+              Save
             </Button>
             <Button
               variant="outlined"
               sx={{ mt: 2, ml: 2 }}
               onClick={() => navigate("/settings/departements")}
             >
-              Annuler
+              Cancel
             </Button>
           </form>
         </Paper>

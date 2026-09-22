@@ -32,11 +32,11 @@ export default function GestionTauxChange() {
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 80 },
-    { field: 'devisSource', headerName: 'Devise Source', width: 180 },
-    { field: 'devisCible', headerName: 'Devise Cible', width: 180 },
+    { field: 'devisSource', headerName: 'Source Currency', width: 180 },
+    { field: 'devisCible', headerName: 'Target Currency', width: 180 },
     {
       field: 'taux',
-      headerName: 'Taux',
+      headerName: 'Rate',
       width: 180,
       renderCell: (params) => params.value?.toFixed(4),
     },
@@ -75,7 +75,7 @@ export default function GestionTauxChange() {
         setTaux(data);
         setFilteredTaux(data);
       } catch (err) {
-        setError("Erreur chargement taux de change");
+        setError("Error loading exchange rates");
         console.log(err);
       } finally {
         setLoading(false);
@@ -112,12 +112,12 @@ export default function GestionTauxChange() {
       if (response.data.success) {
         setTaux(prev => prev.filter(t => t.id !== deleteId));
         setFilteredTaux(prev => prev.filter(t => t.id !== deleteId));
-        setSnackbarMessage("Taux supprimé avec succès");
+        setSnackbarMessage("Rate deleted successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || 'Échec de la suppression');
+      setSnackbarMessage(err.response?.data?.message || 'Deletion failed');
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -131,24 +131,24 @@ export default function GestionTauxChange() {
     setDeleteId(null);
   };
 
-  if (loading) return <div>Chargement des taux de change...</div>;
+  if (loading) return <div>Loading exchange rates...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <Sidebar initialPath="/settings/taux-change">
       <Box m="30px">
-        <Header title="Gestion des Taux de Change" subtitle="Liste des taux de change" />
+        <Header title="Exchange Rate Management" subtitle="List of exchange rates" />
         <Box mt="25px" height="55vh">
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               variant="outlined"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchText}
               onChange={handleSearch}
               fullWidth
             />
             <Button variant="contained" onClick={handleAddClick}>
-              Ajouter Taux
+              Add Rate
             </Button>
           </Box>
 
@@ -163,10 +163,10 @@ export default function GestionTauxChange() {
           />
 
           <Dialog open={openDialog} onClose={handleCancelDelete}>
-            <DialogTitle>Supprimer ce taux de change ?</DialogTitle>
+            <DialogTitle>Delete this exchange rate?</DialogTitle>
             <DialogActions>
-              <Button onClick={handleCancelDelete}>Annuler</Button>
-              <Button onClick={handleConfirmDelete} color="error">Supprimer</Button>
+              <Button onClick={handleCancelDelete}>Cancel</Button>
+              <Button onClick={handleConfirmDelete} color="error">Delete</Button>
             </DialogActions>
           </Dialog>
 

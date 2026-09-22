@@ -10,11 +10,10 @@ public class DetailsDemande
     public required string Article { get; set; }
     public required int Quantite { get; set; }
 
-    [NotMapped]
-    public int? FournisseurId { get; set; }   // non persisté
+    public int? FournisseurId { get; set; }   // mappé -> nvarchar(max) via conversion
 
     [NotMapped]
-    public Fournisseur? Fournisseur { get; set; }  // non persisté
+    public Fournisseur? Fournisseur { get; set; }  // navigation non mappée (pas de FK)
 
     public double? Prix { get; set; }
     public string? Devis { get; set; } // devise (MAD, EUR...)

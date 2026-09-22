@@ -14,7 +14,7 @@ import Sidebar from "../../components/Sidebar";
 import axios from "axios";
 
 export default function EditDepartement() {
-  const { id } = useParams(); // récupère l'ID depuis l'URL
+  const { id } = useParams(); // get ID from URL
   const [nom, setNom] = useState("");
   const [loading, setLoading] = useState(true);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -22,7 +22,7 @@ export default function EditDepartement() {
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const navigate = useNavigate();
 
-  // Charger le département existant
+  // Load existing department
   useEffect(() => {
     const fetchDepartement = async () => {
       try {
@@ -32,7 +32,7 @@ export default function EditDepartement() {
         });
         setNom(response.data.nom);
       } catch (err) {
-        setSnackbarMessage("Erreur chargement département");
+        setSnackbarMessage("Error loading department");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         console.error(err);
@@ -54,30 +54,30 @@ export default function EditDepartement() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Département modifié avec succès");
+        setSnackbarMessage("Department updated successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/departements"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de la modification");
+      setSnackbarMessage(err.response?.data?.message || "Error updating department");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
   };
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
     <Sidebar initialPath="/settings/departements">
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Modifier Département
+            Edit Department
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du département"
+              label="Department Name"
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               fullWidth
@@ -85,14 +85,14 @@ export default function EditDepartement() {
               margin="normal"
             />
             <Button type="submit" variant="contained" sx={{ mt: 2 }}>
-              Enregistrer
+              Save
             </Button>
             <Button
               variant="outlined"
               sx={{ mt: 2, ml: 2 }}
               onClick={() => navigate("/settings/departements")}
             >
-              Annuler
+              Cancel
             </Button>
           </form>
         </Paper>

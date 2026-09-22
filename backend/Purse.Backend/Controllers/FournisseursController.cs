@@ -28,6 +28,7 @@ namespace Purse.Backend.Controllers
         public IActionResult GetActifs()
         {
             var fournisseurs = _context.Fournisseurs
+                                       .AsEnumerable()
                                        .Where(f => f.Active == true)
                                        .ToList();
             return Ok(fournisseurs);

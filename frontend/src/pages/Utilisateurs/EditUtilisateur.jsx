@@ -20,7 +20,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 
 function UpdateUtilisateur() {
-  const { id } = useParams(); // récupère l'id depuis l'URL
+  const { id } = useParams(); // get id from URL
   const [departements, setDepartements] = useState([]);
   const [chefs, setChefs] = useState([]);
   const navigate = useNavigate();
@@ -36,14 +36,14 @@ function UpdateUtilisateur() {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
   useEffect(() => {
-    // Charger les listes
+    // Load lists
     axios.get("http://localhost:5056/api/departements")
       .then(res => setDepartements(res.data));
 
     axios.get("http://localhost:5056/api/utilisateurs/chefs")
       .then(res => setChefs(res.data));
 
-    // Charger l'utilisateur existant
+    // Load existing user
     axios.get(`http://localhost:5056/api/utilisateurs/${id}`)
       .then(res => {
         const u = res.data;
@@ -72,8 +72,8 @@ function UpdateUtilisateur() {
     axios.put(`http://localhost:5056/api/utilisateurs/${id}`, formData, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
     })
-    .then(() => setSnackbar({ open: true, message: "Utilisateur modifié avec succès !", severity: "success" }))
-    .catch(() => setSnackbar({ open: true, message: "Erreur lors de la modification", severity: "error" }));
+    .then(() => setSnackbar({ open: true, message: "User updated successfully!", severity: "success" }))
+    .catch(() => setSnackbar({ open: true, message: "Error updating user", severity: "error" }));
     setTimeout(() => navigate("/settings/utilisateurs"), 1500);
   };
 
@@ -82,30 +82,31 @@ function UpdateUtilisateur() {
       <Container maxWidth="sm">
         <Paper elevation={3} sx={{ p: 3, mt: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Modifier un utilisateur
+            Edit User
           </Typography>
           <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             
-            <TextField label="Nom" name="nom" value={formData.nom} onChange={handleChange} required />
+            <TextField label="Name" name="nom" value={formData.nom} onChange={handleChange} required />
             <TextField label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
-            <TextField label="Mot de passe" name="motDePasse" type="password" value={formData.motDePasse} onChange={handleChange} required />
+            <TextField label="Password" name="motDePasse" type="password" value={formData.motDePasse} onChange={handleChange} required />
 
             <FormControl fullWidth>
-              <InputLabel>Rôle</InputLabel>
-              <Select label="Rôle" name="role" value={formData.role} onChange={handleChange}>
-                <MenuItem value="employe">Employé</MenuItem>
-                <MenuItem value="chef">Chef</MenuItem>
-                <MenuItem value="achat1">Achat 1</MenuItem>
-                <MenuItem value="achat2">Achat 2</MenuItem>
+              <InputLabel>Role</InputLabel>
+              <Select label="Role" name="role" value={formData.role} onChange={handleChange}>
+                <MenuItem value="employe">Employee</MenuItem>
+                <MenuItem value="chef">Manager</MenuItem>
+                <MenuItem value="achat1">Purchasing 1</MenuItem>
+                <MenuItem value="achat2">Purchasing 2</MenuItem>
                 <MenuItem value="finance">Finance</MenuItem>
-                <MenuItem value="directeur">Directeur</MenuItem>
+                <MenuItem value="directeur">Director</MenuItem>
+                <MenuItem value="emea">EMEA</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl fullWidth>
-              <InputLabel>Département</InputLabel>
-              <Select  label="Département" name="departementId" value={formData.departementId} onChange={handleChange} required>
+              <InputLabel>Department</InputLabel>
+              <Select  label="Department" name="departementId" value={formData.departementId} onChange={handleChange} required>
                 {departements.map(d => (
                   <MenuItem key={d.id} value={d.id}>{d.nom}</MenuItem>
                 ))}
@@ -113,21 +114,21 @@ function UpdateUtilisateur() {
             </FormControl>
 
             <FormControl fullWidth>
-              <InputLabel>Chef</InputLabel>
-              <Select label="Chef" name="chefId" value={formData.chefId ?? ""} onChange={handleChange}>
-                <MenuItem value="">-- Aucun chef --</MenuItem>
+              <InputLabel>Manager (manager / purchasing2 / finance / director)</InputLabel>
+              <Select label="Manager (manager / purchasing2 / finance / director)" name="chefId" value={formData.chefId ?? ""} onChange={handleChange}>
+                <MenuItem value="">-- No manager --</MenuItem>
                 {chefs.map(c => (
-                  <MenuItem key={c.id} value={c.id}>{c.nom}</MenuItem>
+                  <MenuItem key={c.id} value={c.id}>{c.nom} {c.role ? `(${c.role})` : ""}</MenuItem>
                 ))}
               </Select>
             </FormControl>
 
             <FormControlLabel
               control={<Checkbox checked={formData.active} onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))} />}
-              label="Actif"
+              label="Active"
             />
 
-            <Button type="submit" variant="contained" color="primary">Enregistrer</Button>
+            <Button type="submit" variant="contained" color="primary">Save</Button>
           </Box>
         </Paper>
 

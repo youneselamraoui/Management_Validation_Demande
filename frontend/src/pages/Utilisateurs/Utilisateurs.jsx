@@ -40,13 +40,13 @@ export default function GestionUtilisateurs() {
 
   const columns = [
     { field: "id", headerName: "ID", width: 80 },
-    { field: "nom", headerName: "Nom", width: 150 },
+    { field: "nom", headerName: "Name", width: 150 },
     { field: "email", headerName: "Email", width: 200 },
-    { field: "role", headerName: "Rôle", width: 150 },
-    { field: "departementNom", headerName: "Département", width: 150 },
-    { field: "chefNom", headerName: "Chef", width: 150  },
-    { field: "active", headerName: "Actif", width: 100,
-      renderCell: (params) => params.value ? "Oui" : "Non"
+    { field: "role", headerName: "Role", width: 150 },
+    { field: "departementNom", headerName: "Department", width: 150 },
+    { field: "chefNom", headerName: "Manager", width: 150  },
+    { field: "active", headerName: "Active", width: 100,
+      renderCell: (params) => params.value ? "Yes" : "No"
     },
     {
       field: "actions",
@@ -83,7 +83,7 @@ export default function GestionUtilisateurs() {
         setUsers(data);
         setFilteredUsers(data);
       } catch (err) {
-        setError("Erreur chargement utilisateurs");
+        setError("Error loading users");
         console.log(err);
       } finally {
         setLoading(false);
@@ -120,12 +120,12 @@ export default function GestionUtilisateurs() {
       if (response.data.success) {
         setUsers(prev => prev.filter(user => user.id !== deleteId));
         setFilteredUsers(prev => prev.filter(user => user.id !== deleteId));
-        setSnackbarMessage("Utilisateur supprimé avec succès");
+        setSnackbarMessage("User deleted successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Échec de la suppression");
+      setSnackbarMessage(err.response?.data?.message || "Deletion failed");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -139,24 +139,24 @@ export default function GestionUtilisateurs() {
     setDeleteId(null);
   };
 
-  if (loading) return <div>Chargement des utilisateurs...</div>;
+  if (loading) return <div>Loading users...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <Sidebar initialPath="/settings/utilisateurs">
       <Box m="30px">
-        <Header title="Gestion des Utilisateurs" subtitle="Liste des utilisateurs" />
+        <Header title="User Management" subtitle="List of users" />
         <Box mt="25px" height="55vh">
-          <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               variant="outlined"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchText}
               onChange={handleSearch}
               fullWidth
             />
             <Button variant="contained" onClick={handleAddClick}>
-              Ajouter Utilisateur
+              Add User
             </Button>
           </Box>
 
@@ -171,10 +171,10 @@ export default function GestionUtilisateurs() {
           />
 
           <Dialog open={openDialog} onClose={handleCancelDelete}>
-            <DialogTitle>Supprimer cet utilisateur ?</DialogTitle>
+            <DialogTitle>Delete this user?</DialogTitle>
             <DialogActions>
-              <Button onClick={handleCancelDelete}>Annuler</Button>
-              <Button onClick={handleConfirmDelete} color="error">Supprimer</Button>
+              <Button onClick={handleCancelDelete}>Cancel</Button>
+              <Button onClick={handleConfirmDelete} color="error">Delete</Button>
             </DialogActions>
           </Dialog>
 
@@ -182,9 +182,9 @@ export default function GestionUtilisateurs() {
             open={snackbarOpen}
             autoHideDuration={3000}
             onClose={() => setSnackbarOpen(false)}
-            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >
-            <Alert severity={snackbarSeverity} sx={{ width: "100%" }}>
+            <Alert severity={snackbarSeverity} sx={{ width: '100%' }}>
               {snackbarMessage}
             </Alert>
           </Snackbar>

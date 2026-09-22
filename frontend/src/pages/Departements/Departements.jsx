@@ -32,7 +32,7 @@ export default function GestionDepartements() {
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 100 },
-    { field: 'nom', headerName: 'Nom du département', width: 250 },
+    { field: 'nom', headerName: 'Department Name', width: 250 },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -68,7 +68,7 @@ export default function GestionDepartements() {
         setDepartements(data);
         setFilteredDepartements(data);
       } catch (err) {
-        setError("Erreur chargement départements");
+        setError("Error loading departments");
         console.log(err);
       } finally {
         setLoading(false);
@@ -105,12 +105,12 @@ export default function GestionDepartements() {
       if (response.data.success) {
         setDepartements(prev => prev.filter(dep => dep.id !== deleteId));
         setFilteredDepartements(prev => prev.filter(dep => dep.id !== deleteId));
-        setSnackbarMessage("Département supprimé avec succès");
+        setSnackbarMessage("Department deleted successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || 'Échec de la suppression');
+      setSnackbarMessage(err.response?.data?.message || 'Deletion failed');
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -124,24 +124,24 @@ export default function GestionDepartements() {
     setDeleteId(null);
   };
 
-  if (loading) return <div>Chargement des départements...</div>;
+  if (loading) return <div>Loading departments...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <Sidebar initialPath="/settings/departements">
       <Box m="30px">
-        <Header title="Gestion des Départements" subtitle="Liste des départements" />
+        <Header title="Department Management" subtitle="List of departments" />
         <Box mt="25px" height="55vh">
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               variant="outlined"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchText}
               onChange={handleSearch}
               fullWidth
             />
             <Button variant="contained" onClick={handleAddClick}>
-              Ajouter Département
+              Add Department
             </Button>
           </Box>
 
@@ -156,10 +156,10 @@ export default function GestionDepartements() {
           />
 
           <Dialog open={openDialog} onClose={handleCancelDelete}>
-            <DialogTitle>Supprimer ce département ?</DialogTitle>
+            <DialogTitle>Delete this department?</DialogTitle>
             <DialogActions>
-              <Button onClick={handleCancelDelete}>Annuler</Button>
-              <Button onClick={handleConfirmDelete} color="error">Supprimer</Button>
+              <Button onClick={handleCancelDelete}>Cancel</Button>
+              <Button onClick={handleConfirmDelete} color="error">Delete</Button>
             </DialogActions>
           </Dialog>
 

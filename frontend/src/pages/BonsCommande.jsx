@@ -105,7 +105,7 @@ const generatePO = async (b, delai = 60) => {
     doc.line(marginL, gridY + rowH * i, marginR, gridY + rowH * i);
   }
 
-  const createdAt = new Date(b.demande.createdAt).toLocaleDateString("fr-FR", {
+  const createdAt = new Date(b.demande.createdAt).toLocaleDateString("en-GB", {
     timeZone: "Africa/Casablanca"
   });
 
@@ -128,7 +128,7 @@ const generatePO = async (b, delai = 60) => {
   doc.text("Payment terms :", colMid + 3, gridY + rowH + 5.5);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`${delai} jours date de reception de la facture`, colMid + 42, gridY + rowH + 5.5);
+  doc.text(`${delai} days from invoice receipt date`, colMid + 42, gridY + rowH + 5.5);
   doc.setFontSize(9);
 
   doc.setFont("helvetica", "bold");
@@ -234,7 +234,7 @@ export default function SuiviPO() {
   const handleConfirmDownload = async () => {
     const delai = parseInt(delaiInput) || 60;
 
-    // ✅ Sauvegarder dans la base de données
+    // Save to database
     await axios.put(
       `http://localhost:5056/api/bonscommande/${selectedBon.id}/delai`,
       delai,
@@ -246,7 +246,7 @@ export default function SuiviPO() {
       }
     );
 
-    // ✅ Mettre à jour localement
+    // Update locally
     setBons(prev => prev.map(b =>
       b.id === selectedBon.id ? { ...b, delaiPaiement: delai } : b
     ));
@@ -259,14 +259,14 @@ export default function SuiviPO() {
     <Sidebar>
       <Box sx={{ p: 3 }}>
         <Typography variant="h4" fontWeight={700} gutterBottom>
-          📦 Suivi des PO
+          📦 PO Tracking
         </Typography>
         <Typography variant="subtitle1" color="text.secondary" mb={3}>
-          Bons de commande générés après validation directeur
+          Purchase orders generated after Director approval
         </Typography>
 
         {bons.length === 0 ? (
-          <Alert severity="info">Aucun bon de commande trouvé.</Alert>
+          <Alert severity="info">No purchase orders found.</Alert>
         ) : (
           bons.map(b => (
             <Card key={b.id} sx={{ mb: 3, borderRadius: 3, boxShadow: 2 }}>
@@ -275,28 +275,28 @@ export default function SuiviPO() {
                 {/* ── Header ── */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                   <Typography variant="h6" fontWeight={700}>
-                    PO : {b.po}
+                    PO: {b.po}
                     <Chip
-                      label={`RFX : ${b.demande.rfx || "—"}`}
+                      label={`RFX: ${b.demande.rfx || "—"}`}
                       size="small"
                       color="primary"
                       sx={{ ml: 1 }}
                     />
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                    <Chip label="Bon de commande" color="success" size="small" />
+                    <Chip label="Purchase Order" color="success" size="small" />
                     <Button
                       variant="outlined"
                       size="small"
                       startIcon={<DownloadIcon />}
                       onClick={() => handleOpenDownload(b)}
                     >
-                      Télécharger PO
+                      Download PO
                     </Button>
                   </Box>
                 </Box>
 
-                {/* ── Infos ── */}
+                {/* ── Info ── */}
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <PersonIcon fontSize="small" color="action" />
@@ -308,18 +308,18 @@ export default function SuiviPO() {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <CalendarMonthIcon fontSize="small" color="action" />
                     <Typography variant="body2">
-                      {new Date(b.dateCreation).toLocaleString("fr-FR", {
+                      {new Date(b.dateCreation).toLocaleString("en-GB", {
                         timeZone: "Africa/Casablanca"
                       })}
                     </Typography>
                   </Box>
                   <Chip
-                    label={b.demande.capex ? `CAPEX : ${b.demande.capex.nomCapex}` : "Hors CAPEX"}
+                    label={b.demande.capex ? `CAPEX: ${b.demande.capex.nomCapex}` : "Without CAPEX"}
                     size="small"
                     color={b.demande.capex ? "secondary" : "default"}
                   />
                   <Chip
-                    label={`Fournisseur : ${b.fournisseur?.nom || "—"}`}
+                    label={`Supplier: ${b.fournisseur?.nom || "—"}`}
                     size="small"
                     variant="outlined"
                   />
@@ -327,23 +327,23 @@ export default function SuiviPO() {
 
                 <Divider sx={{ mb: 2 }} />
 
-                {/* ── Détail articles ── */}
+                {/* ── Item details ── */}
                 <Accordion disableGutters elevation={0}
                   sx={{ border: "1px solid #e0e0e0", borderRadius: 2 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="body2" fontWeight={600}>
-                      Détail des articles
+                      Item Details
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: "#f8fafc" }}>
-                          <TableCell><strong>Article</strong></TableCell>
-                          <TableCell><strong>Fournisseur</strong></TableCell>
-                          <TableCell align="right"><strong>Qté</strong></TableCell>
-                          <TableCell align="right"><strong>Prix unit.</strong></TableCell>
-                          <TableCell align="right"><strong>Sous-total</strong></TableCell>
+                          <TableCell><strong>Item</strong></TableCell>
+                          <TableCell><strong>Supplier</strong></TableCell>
+                          <TableCell align="right"><strong>Qty</strong></TableCell>
+                          <TableCell align="right"><strong>Unit Price</strong></TableCell>
+                          <TableCell align="right"><strong>Subtotal</strong></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -370,7 +370,7 @@ export default function SuiviPO() {
                 {/* ── Total ── */}
                 <Box sx={{ mt: 2, p: 2, bgcolor: "#f8fafc", borderRadius: 2 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="body2" fontWeight={600}>Total commande :</Typography>
+                    <Typography variant="body2" fontWeight={600}>Order total:</Typography>
                     <Typography variant="body2" fontWeight={700} color="primary">
                       {b.demande.totalPrix?.toFixed(2)} MAD
                     </Typography>
@@ -383,13 +383,13 @@ export default function SuiviPO() {
         )}
       </Box>
 
-      {/* ── Dialog Délai de paiement ── */}
+      {/* ── Payment Delay Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>Délai de paiement</DialogTitle>
+        <DialogTitle>Payment Delay</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            label="Nombre de jours"
+            label="Number of days"
             type="number"
             fullWidth
             value={delaiInput}
@@ -398,9 +398,9 @@ export default function SuiviPO() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Annuler</Button>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleConfirmDownload}>
-            Télécharger
+            Download
           </Button>
         </DialogActions>
       </Dialog>

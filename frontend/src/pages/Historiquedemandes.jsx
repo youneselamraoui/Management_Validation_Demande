@@ -14,6 +14,7 @@ const getStatutColor = (statut) => {
   const s = statut.toLowerCase();
   if (s.includes("refus")) return "error";
   if (s.includes("bon de commande")) return "success";
+  if (s.includes("informations")) return "info";
   if (s.includes("attente")) return "warning";
   return "default";
 };
@@ -41,7 +42,7 @@ const HistoriqueDemandes = () => {
   const token   = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
 
-  // ── Charger les listes pour les selects une seule fois ──────────────────
+  // ── Load lists for selects once ──────────────────
   useEffect(() => {
     const loadLists = async () => {
       try {
@@ -54,14 +55,14 @@ const HistoriqueDemandes = () => {
         setUtilisateurs(resUtilisateurs.data);
         setDepartements(resDepartements.data);
       } catch (err) {
-        console.error("Erreur chargement listes", err);
+        console.error("Error loading lists", err);
       }
     };
     loadLists();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch depuis backend avec filtres + pagination ──────────────────────
+  // ── Fetch from backend with filters + pagination ──────────────────────
   const fetchHistorique = useCallback(async () => {
     setLoading(true);
     try {
@@ -72,7 +73,7 @@ const HistoriqueDemandes = () => {
       if (filtreDept)             params.append("departementId", filtreDept);
       if (filtreDate)             params.append("date", filtreDate);
       if (filtreUtilisateur)      params.append("utilisateurId", filtreUtilisateur);
-      params.append("page", page + 1);   // API commence à 1, DataGrid à 0
+      params.append("page", page + 1);   // API starts at 1, DataGrid at 0
       params.append("pageSize", pageSize);
 
       const res = await axios.get(
@@ -85,7 +86,7 @@ const HistoriqueDemandes = () => {
       setStatuts([...new Set(res.data.data.map(d => d.statut).filter(Boolean))]);
     } catch (err) {
       console.error(err);
-      setSnackbar({ open: true, message: "Erreur chargement historique", severity: "error" });
+      setSnackbar({ open: true, message: "Error loading history", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ const HistoriqueDemandes = () => {
     fetchHistorique();
   }, [fetchHistorique]);
 
-  // Quand un filtre change → revenir à la page 0
+  // When a filter changes → go back to page 0
   const handleFiltreChange = (setter) => (e) => {
     setter(e.target.value);
     setPage(0);
@@ -113,22 +114,22 @@ const HistoriqueDemandes = () => {
   const columns = [
     { field: "id", headerName: "ID", width: 70 },
     {
-      field: "statut", headerName: "Statut", width: 260,
+      field: "statut", headerName: "Status", width: 260,
       renderCell: (params) => <Chip label={params.value} color={getStatutColor(params.value)} size="small" />,
     },
     {
       field: "createdAt", headerName: "Date", width: 160,
       renderCell: (params) => params.value
-        ? new Date(params.value).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+        ? new Date(params.value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
         : "—",
     },
-    { field: "utilisateur", headerName: "Employé", width: 150, renderCell: (params) => params.value?.nom || "—" },
-    { field: "departement", headerName: "Département", width: 150, renderCell: (params) => params.row.utilisateur?.departement || "—" },
+    { field: "utilisateur", headerName: "Employee", width: 150, renderCell: (params) => params.value?.nom || "—" },
+    { field: "departement", headerName: "Department", width: 150, renderCell: (params) => params.row.utilisateur?.departement || "—" },
     {
       field: "capexId", headerName: "Capex", width: 180,
-      renderCell: (params) => { const c = capexList.find(c => c.id === params.value); return c ? c.nomCapex : "Sans Capex"; },
+      renderCell: (params) => { const c = capexList.find(c => c.id === params.value); return c ? c.nomCapex : "Without Capex"; },
     },
-    { field: "details", headerName: "Articles", width: 110, renderCell: (params) => `${params.value?.length || 0} article(s)` },
+    { field: "details", headerName: "Items", width: 110, renderCell: (params) => `${params.value?.length || 0} item(s)` },
     {
       field: "actions", headerName: "Actions", width: 90, sortable: false,
       renderCell: (params) => (
@@ -139,34 +140,41 @@ const HistoriqueDemandes = () => {
     },
   ];
 
+  const demandesEnAttenteInfo = demandes.filter(d => d.statut === "En attente informations complémentaires");
+
   return (
     <Sidebar>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h4" fontWeight={700} gutterBottom>Historique des Demandes</Typography>
+        <Typography variant="h4" fontWeight={700} gutterBottom>Request Tracking</Typography>
+        {demandesEnAttenteInfo.length > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            ℹ️ You have <strong>{demandesEnAttenteInfo.length} request(s)</strong> awaiting additional information — open details to respond to the approver.
+          </Alert>
+        )}
         {/* <Typography variant="body2" color="text.secondary" mb={3}>
-          {total} demande(s) trouvée(s)
+          {total} request(s) found
         </Typography> */}
 
-        {/* ─── Filtres ──────────────────────────────────────────────────── */}
+        {/* ─── Filters ──────────────────────────────────────────────────── */}
         <Paper sx={{ p: 2, mb: 3, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-          <TextField select label="Statut" value={filtreStatut} onChange={handleFiltreChange(setFiltreStatut)} size="small" sx={{ minWidth: 220 }}>
-            <MenuItem value="">— Tous les statuts —</MenuItem>
+          <TextField select label="Status" value={filtreStatut} onChange={handleFiltreChange(setFiltreStatut)} size="small" sx={{ minWidth: 220 }}>
+            <MenuItem value="">— All statuses —</MenuItem>
             {statuts.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
           </TextField>
 
           <TextField select label="Capex" value={filtreCapex} onChange={handleFiltreChange(setFiltreCapex)} size="small" sx={{ minWidth: 200 }}>
-            <MenuItem value="">— Tous les Capex —</MenuItem>
-            <MenuItem value="null">Sans Capex</MenuItem>
+            <MenuItem value="">— All Capex —</MenuItem>
+            <MenuItem value="null">Without Capex</MenuItem>
             {capexList.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nomCapex}</MenuItem>)}
           </TextField>
 
-          <TextField select label="Département" value={filtreDept} onChange={handleFiltreChange(setFiltreDept)} size="small" sx={{ minWidth: 200 }}>
-            <MenuItem value="">— Tous les Départements —</MenuItem>
+          <TextField select label="Department" value={filtreDept} onChange={handleFiltreChange(setFiltreDept)} size="small" sx={{ minWidth: 200 }}>
+            <MenuItem value="">— All Departments —</MenuItem>
             {departementsList.map(d => <MenuItem key={d.id} value={String(d.id)}>{d.nom}</MenuItem>)}
           </TextField>
 
-          <TextField select label="Employé" value={filtreUtilisateur} onChange={handleFiltreChange(setFiltreUtilisateur)} size="small" sx={{ minWidth: 200 }}>
-            <MenuItem value="">— Tous les Employés —</MenuItem>
+          <TextField select label="Employee" value={filtreUtilisateur} onChange={handleFiltreChange(setFiltreUtilisateur)} size="small" sx={{ minWidth: 200 }}>
+            <MenuItem value="">— All Employees —</MenuItem>
             {utilisateursList.map(u => <MenuItem key={u.id} value={String(u.id)}>{u.nom}</MenuItem>)}
           </TextField>
 
@@ -177,11 +185,11 @@ const HistoriqueDemandes = () => {
           />
 
           <Button variant="outlined" size="small" onClick={handleReset}>
-            Réinitialiser
+            Reset
           </Button>
         </Paper>
 
-        {/* ─── Tableau avec pagination serveur ──────────────────────────── */}
+        {/* ─── Table with server pagination ──────────────────────────── */}
         <Box height="55vh">
           <DataGrid
             rows={demandes}
@@ -205,6 +213,7 @@ const HistoriqueDemandes = () => {
           onClose={() => setDialogOpen(false)}
           demande={selectedDemande}
           capexList={capexList}
+          onResponded={fetchHistorique}
         />
 
         <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>

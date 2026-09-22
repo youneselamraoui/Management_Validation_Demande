@@ -95,6 +95,12 @@ namespace Purse.Backend.Migrations
                     b.Property<string>("CheminDevis")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CheminDevis2")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CheminDevis3")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Commentaire")
                         .HasColumnType("nvarchar(max)");
 

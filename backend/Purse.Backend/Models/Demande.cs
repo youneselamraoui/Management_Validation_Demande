@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Purse.Backend.Models;
 
 public class Demande
@@ -27,9 +29,45 @@ public class Demande
     public DateTime? DateValidateFinance { get; set; }
     public DateTime? DateValidateDirecteur { get; set; }
     public string? CheminDevis { get; set; }
+    public string? CheminDevis2 { get; set; }
+    public string? CheminDevis3 { get; set; }
 
+    // ─── SAP / EMEA ───────────────────────────────────────────────────
+    public string? CheminSAP { get; set; }
+    public string? CommentaireSAP { get; set; }
+    public DateTime? DateInsertionSAP { get; set; }
+    public DateTime? DateValidationEMEA { get; set; }
+
+    // ─── Demande d'informations complémentaires ────────────────────────
+    public string? InfoMessage { get; set; }
+    public string? InfoReponse { get; set; }
+    public string? InfoDemandeParRole { get; set; }
+    public int? InfoDemandeParUserId { get; set; }
+    public DateTime? InfoDemandeDate { get; set; }
+    public DateTime? InfoReponseDate { get; set; }
+    public string? StatutAvantInfo { get; set; }
+
+    [NotMapped]
     public ICollection<TransactionCapex> Transactions { get; set; } = new List<TransactionCapex>();
+    [NotMapped]
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public ICollection<DetailsDemande> Details { get; set; } = new List<DetailsDemande>();
     public ICollection<BonCommande> BonsCommande { get; set; } = new List<BonCommande>();
+
+    [NotMapped]
+    public string? CheminFinance { get; set; }
+    [NotMapped]
+    public int? sta1 { get; set; }
+    [NotMapped]
+    public int? sta2 { get; set; }
+    [NotMapped]
+    public int? stc { get; set; }
+    [NotMapped]
+    public int? stf { get; set; }
+    [NotMapped]
+    public int? std { get; set; }
+    [NotMapped]
+    public int? stu { get; set; }
+    [NotMapped]
+    public int? stp { get; set; }
 }

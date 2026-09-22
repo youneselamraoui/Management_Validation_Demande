@@ -42,3 +42,11 @@ public class UpdateBudgetDto
     public decimal MontantReserve { get; set; }
     public decimal BudgetRestant { get; set; }
 }
+public class RequestInfoDto
+{
+    public string Message { get; set; } = "";
+}
+public class RespondInfoDto
+{
+    public string Reponse { get; set; } = "";
+}
