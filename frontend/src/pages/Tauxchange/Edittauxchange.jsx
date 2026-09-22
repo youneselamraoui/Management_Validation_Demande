@@ -32,7 +32,7 @@ export default function EditTauxChange() {
         setDevisCible(data.devisCible);
         setTaux(data.taux);
       } catch (err) {
-        setSnackbarMessage("Erreur chargement taux");
+        setSnackbarMessage("Error loading rate");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         console.error(err);
@@ -58,31 +58,31 @@ export default function EditTauxChange() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Taux modifié avec succès");
+        setSnackbarMessage("Rate updated successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/taux-change"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de la modification");
+      setSnackbarMessage(err.response?.data?.message || "Error updating rate");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
   };
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
     <Sidebar initialPath="/settings/taux-change">
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Modifier Taux de Change
+            Edit Exchange Rate
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
               select
-              label="Devise Source"
+              label="Source Currency"
               value={devisSource}
               onChange={(e) => setDevisSource(e.target.value)}
               fullWidth
@@ -96,7 +96,7 @@ export default function EditTauxChange() {
 
             <TextField
               select
-              label="Devise Cible"
+              label="Target Currency"
               value={devisCible}
               onChange={(e) => setDevisCible(e.target.value)}
               fullWidth
@@ -109,7 +109,7 @@ export default function EditTauxChange() {
             </TextField>
 
             <TextField
-              label="Taux"
+              label="Rate"
               type="number"
               value={taux}
               onChange={(e) => setTaux(e.target.value)}
@@ -121,14 +121,14 @@ export default function EditTauxChange() {
 
             <Box sx={{ mt: 2 }}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/taux-change")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
           </form>

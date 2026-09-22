@@ -14,5 +14,5 @@ export default function Logout() {
     performLogout();
   }, [logout, navigate]);
 
-   return <div>Déconnexion en cours...</div>;
+   return <div>Logging out...</div>;
 }

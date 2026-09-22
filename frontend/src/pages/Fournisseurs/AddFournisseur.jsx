@@ -39,13 +39,13 @@ export default function AddFournisseur() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Fournisseur ajouté avec succès");
+        setSnackbarMessage("Supplier added successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/fournisseurs"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de l'ajout");
+      setSnackbarMessage(err.response?.data?.message || "Error adding supplier");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -61,11 +61,11 @@ export default function AddFournisseur() {
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Ajouter un fournisseur
+            Add Supplier
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du fournisseur"
+              label="Supplier Name"
               name="nom"
               value={formData.nom}
               onChange={handleChange}
@@ -84,7 +84,7 @@ export default function AddFournisseur() {
               margin="normal"
             />
             <TextField
-              label="Adresse"
+              label="Address"
               name="adresse"
               value={formData.adresse}
               onChange={handleChange}
@@ -93,7 +93,7 @@ export default function AddFournisseur() {
               margin="normal"
             />
             <TextField
-              label="Téléphone"
+              label="Phone"
               name="tel"
               value={formData.tel}
               onChange={handleChange}
@@ -112,19 +112,19 @@ export default function AddFournisseur() {
                   }
                 />
               }
-              label="Actif"
+              label="Active"
             />
 
             <Box display="flex" justifyContent="flex-end" mt={3}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/fournisseurs")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
 

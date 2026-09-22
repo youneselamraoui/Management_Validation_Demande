@@ -27,7 +27,7 @@ const CreerDemande = () => {
   const [articles, setArticles] = useState([{ article: "", quantite: 1, fournisseurId: null }]);
   const [fournisseurs, setFournisseurs] = useState([]);
   const [capexList, setCapexList] = useState([]);
-  const [avecCapex, setAvecCapex] = useState("non"); // "oui" ou "non"
+  const [avecCapex, setAvecCapex] = useState("non"); // "oui" or "non"
   const [capexId, setCapexId] = useState("");
   const [loading, setLoading] = useState(false);
   const [fichier, setFichier] = useState(null);
@@ -53,8 +53,8 @@ const CreerDemande = () => {
         setFournisseurs(resFournisseurs.data);
         setCapexList(resCapex.data);
       } catch (err) {
-        console.error("Erreur chargement données", err);
-        setSnackbarMessage("Erreur lors du chargement des données.");
+        console.error("Error loading data", err);
+        setSnackbarMessage("Error loading data.");
         setSnackbarSeverity("error");
         setOpenSnackbar(true);
       }
@@ -76,24 +76,38 @@ const CreerDemande = () => {
     setArticles(articles.filter((_, i) => i !== index));
   };
 
- const handleSubmit = async () => {
-  try {
-    setLoading(true);
-    const filtered = articles.filter(a => a.article.trim() !== "");
+  // Supplier selected => justification required
+  const hasFournisseurChoisi = articles.some(a => a.fournisseurId != null && a.fournisseurId !== "");
+  const justificationRequired = hasFournisseurChoisi;
 
-    if (filtered.length === 0) {
-      setSnackbarMessage("Veuillez ajouter au moins un article.");
-      setSnackbarSeverity("warning");
-      setOpenSnackbar(true);
-      return;
-    }
+  const handleSubmit = async () => {
+   try {
+     setLoading(true);
+     const filtered = articles.filter(a => a.article.trim() !== "");
 
-    if (avecCapex === "oui" && !capexId) {
-      setSnackbarMessage("Veuillez sélectionner un Capex.");
-      setSnackbarSeverity("warning");
-      setOpenSnackbar(true);
-      return;
-    }
+     if (filtered.length === 0) {
+       setSnackbarMessage("Please add at least one item.");
+       setSnackbarSeverity("warning");
+       setOpenSnackbar(true);
+       return;
+     }
+
+     if (avecCapex === "oui" && !capexId) {
+       setSnackbarMessage("Please select a Capex.");
+       setSnackbarSeverity("warning");
+       setOpenSnackbar(true);
+       return;
+     }
+
+     // Validation: justification required if a supplier is selected
+     const fournisseurChoisi = filtered.some(a => a.fournisseurId != null && a.fournisseurId !== "");
+     if (fournisseurChoisi && !justification.trim()) {
+       setSnackbarMessage("Justification is required when you select a supplier.");
+       setSnackbarSeverity("warning");
+       setOpenSnackbar(true);
+       setLoading(false);
+       return;
+     }
 
     const token = localStorage.getItem("token");
 
@@ -101,7 +115,7 @@ const CreerDemande = () => {
     if (avecCapex === "oui") formData.append("capexId", capexId);
     formData.append("justification", justification);
 
-    // Les details : envoyer chaque item séparément
+    // Details: send each item separately
     filtered.forEach((item, index) => {
       formData.append(`Details[${index}].Article`, item.article);
       formData.append(`Details[${index}].Quantite`, item.quantite);
@@ -124,7 +138,7 @@ const CreerDemande = () => {
       }
     );
 
-    setSnackbarMessage("Votre demande a été envoyée avec succès !");
+    setSnackbarMessage("Your request has been sent successfully!");
     setSnackbarSeverity("success");
     setOpenSnackbar(true);
 
@@ -135,8 +149,8 @@ const CreerDemande = () => {
     setFichier(null);       
 
   } catch (err) {
-    console.error("Erreur envoi demande", err.response?.data);
-    setSnackbarMessage("Erreur lors de l'envoi de la demande.");
+    console.error("Error sending request", err.response?.data);
+    setSnackbarMessage("Error sending request.");
     setSnackbarSeverity("error");
     setOpenSnackbar(true);
   } finally {
@@ -147,13 +161,13 @@ const CreerDemande = () => {
     <Sidebar>
       <Box sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom >
-          Créer une Demande
+          Create Request
         </Typography>
 
-        {/* ─── Choix Capex ─── */}
+        {/* ─── Capex Choice ─── */}
         <Paper sx={{ p: 2, mb: 3 }}>
           <FormControl>
-            <FormLabel>Associer à un Capex ?</FormLabel>
+            <FormLabel>Link to Capex?</FormLabel>
             <RadioGroup
               row
               value={avecCapex}
@@ -162,15 +176,15 @@ const CreerDemande = () => {
                 setCapexId("");
               }}
             >
-              <FormControlLabel value="non" control={<Radio />} label="Sans Capex" />
-              <FormControlLabel value="oui" control={<Radio />} label="Avec Capex" />
+              <FormControlLabel value="non" control={<Radio />} label="Without Capex" />
+              <FormControlLabel value="oui" control={<Radio />} label="With Capex" />
             </RadioGroup>
           </FormControl>
 
           {avecCapex === "oui" && (
             <TextField
               select
-              label="Sélectionner un Capex"
+              label="Select Capex"
               value={capexId}
               onChange={(e) => setCapexId(e.target.value)}
               fullWidth
@@ -179,35 +193,49 @@ const CreerDemande = () => {
             >
               {capexList.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
-                  {c.nomCapex} — Budget restant : {c.budgetRestant.toLocaleString("fr-FR")} {c.devis}
+                  {c.nomCapex} — Remaining budget: {c.budgetRestant.toLocaleString("en-GB")} {c.devis}
                 </MenuItem>
               ))}
             </TextField>
           )}
           <TextField
-            label={avecCapex === "oui" ? "Justification / Objet (Capex)" : "Objet / Justification de la demande"}
+            label={avecCapex === "oui" ? "Justification / Purpose (Capex)" : "Purpose / Request Justification"}
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             fullWidth
             multiline
             rows={3}
+            required={justificationRequired}
+            error={justificationRequired && !justification.trim()}
+            helperText={
+              justificationRequired && !justification.trim()
+                ? "Justification is required because you selected a supplier"
+                : justificationRequired
+                ? "Justification required (supplier selected)"
+                : ""
+            }
             sx={{ mt: 2 }}
-            placeholder="Ex: Achat de matériel pour le projet X..."
+            placeholder="E.g.: Purchase of equipment for project X..."
           />
+          {justificationRequired && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              You selected a supplier: please justify this choice in the field above.
+            </Alert>
+          )}
         </Paper>
 
-        {/* ─── Articles ─── */}
+        {/* ─── Items ─── */}
         <Paper sx={{ p: 2, mb: 3 }}>
           {articles.map((item, index) => (
             <Box key={index} sx={{ display: "flex", alignItems: "center", mb: 2, gap: 2 }}>
               <TextField
-                label="Article"
+                label="Item"
                 value={item.article}
                 onChange={(e) => handleChange(index, "article", e.target.value)}
                 fullWidth
               />
               <TextField
-                label="Quantité"
+                label="Quantity"
                 type="number"
                 value={item.quantite}
                 onChange={(e) => handleChange(index, "quantite", parseInt(e.target.value))}
@@ -219,7 +247,7 @@ const CreerDemande = () => {
                 displayEmpty
                 sx={{ width: 200 }}
               >
-                <MenuItem value="">-- Aucun fournisseur --</MenuItem>
+                <MenuItem value="">-- No supplier --</MenuItem>
                 {fournisseurs.map((f) => (
                   <MenuItem key={f.id} value={f.id}>
                     {f.nom}
@@ -232,15 +260,15 @@ const CreerDemande = () => {
             </Box>
           ))}
           <Button startIcon={<AddIcon />} variant="outlined" onClick={addArticle}>
-            Ajouter un article
+            Add item
           </Button>
         </Paper>
         <Paper sx={{ p: 2, mb: 3 }}>
           <Typography variant="subtitle1" gutterBottom>
-            Pièce jointe (optionnel)
+            Attachment (optional)
           </Typography>
           <Button variant="outlined" component="label">
-            📎 Choisir un fichier
+            📎 Choose file
             <input
               type="file"
               hidden
@@ -259,10 +287,10 @@ const CreerDemande = () => {
 
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button variant="contained" color="primary" onClick={handleSubmit} disabled={loading}>
-            {loading ? <CircularProgress size={20} /> : "Soumettre la demande"}
+            {loading ? <CircularProgress size={20} /> : "Submit Request"}
           </Button>
           <Button variant="outlined" color="secondary">
-            Annuler
+            Cancel
           </Button>
         </Box>
 

@@ -22,12 +22,12 @@ function Login() {
       });
 
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user)); // stocker l'utilisateur
+      localStorage.setItem("user", JSON.stringify(response.data.user)); // store user
       
       navigate("/creer-demande");
     } catch (err) {
-      setError("Email ou mot de passe incorrect ou compte inactif");
-      console.error("Erreur de connexion :", err);
+      setError("Incorrect email or password or inactive account");
+      console.error("Login error:", err);
     }
   };
 
@@ -43,13 +43,13 @@ function Login() {
           </Avatar>
           <Typography variant="h5" fontWeight="bold">Purchasing</Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
-            Connectez-vous pour gérer vos demandes
+            Log in to manage your requests
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField label="Email" fullWidth margin="normal" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <TextField label="Mot de passe" type="password" fullWidth margin="normal" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <TextField label="Password" type="password" fullWidth margin="normal" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <Button type="submit" variant="contained" fullWidth sx={{ mt: 2, py: 1.3, fontWeight: "bold", borderRadius: 2 }}>
-              SE CONNECTER
+              LOG IN
             </Button>
             {error && <Typography color="error" mt={2}>{error}</Typography>}
           </form>

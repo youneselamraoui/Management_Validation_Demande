@@ -98,7 +98,6 @@ namespace Purse.Backend.Data
             // Ignorer explicitement les propriétés [NotMapped] pour éviter que EF ne tente de mapper des colonnes absentes
             modelBuilder.Entity<Demande>().Ignore(d => d.Transactions);
             modelBuilder.Entity<Demande>().Ignore(d => d.Notifications);
-            modelBuilder.Entity<Demande>().Ignore(d => d.CheminSAP);
             modelBuilder.Entity<Demande>().Ignore(d => d.CheminFinance);
             modelBuilder.Entity<Demande>().Ignore(d => d.sta1);
             modelBuilder.Entity<Demande>().Ignore(d => d.sta2);

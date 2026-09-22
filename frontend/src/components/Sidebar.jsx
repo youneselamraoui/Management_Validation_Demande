@@ -21,7 +21,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LockResetIcon from '@mui/icons-material/LockReset';
 
-// ─── Thème ──────────────────────────────────────────────────────────────────
+// ─── Theme ──────────────────────────────────────────────────────────────────
 const appTheme = createTheme({
   palette: {
     primary:    { main: '#3f51b5', light: '#757de8', dark: '#002984' },
@@ -88,40 +88,35 @@ const appTheme = createTheme({
   },
 });
 
-// ─── Navigations ────────────────────────────────────────────────────────────
+// ─── Navigation ────────────────────────────────────────────────────────────
 const NAVIGATION_ADMIN = [
   { kind: 'header', title: 'Main Menu' },
   {
     segment: 'creer-demande',
-    title: "Demande d'achat",
+    title: "Purchase Request",
     icon: <DashboardIcon />,
   },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
   {
     segment: 'settings',
     title: 'Settings',
     icon: <SettingsApplicationsIcon />,
     children: [
-      { segment: 'departements', title: 'Departements', icon: <BusinessCenterIcon /> },
-      { segment: 'utilisateurs', title: 'Utilisateurs', icon: <GroupsIcon /> },
-      { segment: 'fournisseurs', title: 'Fournisseurs', icon: <StoreIcon /> },
-      { segment: 'capex', title: 'Gestion Capex', icon: <AccountBalanceWalletIcon /> },
-      { segment: 'taux-change', title: 'Taux de Change', icon: <CurrencyExchangeIcon /> }
+      { segment: 'departements', title: 'Departments', icon: <BusinessCenterIcon /> },
+      { segment: 'utilisateurs', title: 'Users', icon: <GroupsIcon /> },
+      { segment: 'fournisseurs', title: 'Suppliers', icon: <StoreIcon /> },
+      { segment: 'capex', title: 'Capex Management', icon: <AccountBalanceWalletIcon /> },
+      { segment: 'taux-change', title: 'Exchange Rate', icon: <CurrencyExchangeIcon /> }
     ],
   },
   {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
   {
     segment: 'logout',
-    title: 'Déconnexion',
+    title: 'Logout',
     icon: <LogoutIcon color="error" />,
   },
 ];
@@ -130,33 +125,28 @@ const NAV_CHEF = [
   { kind: 'header', title: 'Main Menu' },
   {
     segment: 'creer-demande',
-    title: "Demande d'achat",
+    title: "Purchase Request",
     icon: <DashboardIcon />,
   },
   {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  {
     segment: 'validation-chef',
-    title: 'Validation Chef',
+    title: 'Manager Approval',
     icon: <CheckCircleIcon />,
   },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
   {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
    {
   segment: 'Statistic',
-  title: 'Statistic',
+  title: 'Statistics',
   icon: <LockResetIcon color="secondary" />,
   },
   {
     segment: 'logout',
-    title: 'Déconnexion',
+    title: 'Logout',
     icon: <LogoutIcon color="error" />,
   },
 ];
@@ -165,123 +155,117 @@ const NAV_EMPLOYE = [
   { kind: 'header', title: 'Main Menu' },
   {
     segment: 'creer-demande',
-    title: "Demande d'achat",
+    title: "Purchase Request",
     icon: <DashboardIcon />,
   },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
    {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
   {
     segment: 'logout',
-    title: 'Déconnexion',
+    title: 'Logout',
     icon: <LogoutIcon color="error" />,
   },
 ];
 const NAV_ACHAT1 = [
   { kind: 'header', title: 'Main Menu' },
-  { segment: 'creer-demande', title: "Demande d'achat", icon: <DashboardIcon /> },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  { segment: 'validation-achat1', title: 'Validation Achat 1', icon: <SearchIcon /> },
-  { segment: 'suivi-po', title: 'Suivi des PO', icon: <ReceiptLongIcon /> },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'creer-demande', title: "Purchase Request", icon: <DashboardIcon /> },
+  { segment: 'validation-achat1', title: 'Purchasing Approval 1', icon: <SearchIcon /> },
+  { segment: 'insertion-sap', title: 'SAP Insertion - RFX', icon: <ReceiptLongIcon /> },
+  { segment: 'suivi-po', title: 'PO Tracking', icon: <ReceiptLongIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
    {
     segment: 'settings',
     title: 'Settings',
     icon: <SettingsApplicationsIcon />,
     children: [
-      { segment: 'fournisseurs', title: 'Fournisseurs', icon: <StoreIcon /> },
-       { segment: 'capex', title: 'Gestion Capex', icon: <AccountBalanceWalletIcon /> },
-      { segment: 'taux-change', title: 'Taux de Change', icon: <CurrencyExchangeIcon /> }
+      { segment: 'fournisseurs', title: 'Suppliers', icon: <StoreIcon /> },
+       { segment: 'capex', title: 'Capex Management', icon: <AccountBalanceWalletIcon /> },
+      { segment: 'taux-change', title: 'Exchange Rate', icon: <CurrencyExchangeIcon /> }
     ],
   },
    {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
-  { segment: 'logout', title: 'Déconnexion', icon: <LogoutIcon color="error" /> },
+  { segment: 'logout', title: 'Logout', icon: <LogoutIcon color="error" /> },
 ];
 const NAV_ACHAT2 = [
-  { segment: 'creer-demande', title: "Demande d'achat", icon: <DashboardIcon /> },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  { segment: 'validation-achat2', title: 'Validation Achat 2', icon: <FactCheckIcon /> },
+  { segment: 'creer-demande', title: "Purchase Request", icon: <DashboardIcon /> },
+  { segment: 'validation-achat2', title: 'Purchasing Approval 2', icon: <FactCheckIcon /> },
    {
     segment: 'validation-chef',
-    title: 'Validation Chef',
+    title: 'Manager Approval',
     icon: <CheckCircleIcon />,
   },
-  { segment: 'suivi-po', title: 'Suivi des PO', icon: <ReceiptLongIcon /> },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'suivi-po', title: 'PO Tracking', icon: <ReceiptLongIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
    {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
-  { segment: 'logout', title: 'Déconnexion', icon: <LogoutIcon color="error" /> },
+  { segment: 'logout', title: 'Logout', icon: <LogoutIcon color="error" /> },
 ];
 const NAV_FINANCE = [
   { kind: 'header', title: 'Main Menu' },
-   { segment: 'creer-demande', title: "Demande d'achat", icon: <DashboardIcon /> },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
-  { segment: 'validation-finance', title: 'Validation Finance', icon: <AccountBalanceWalletIcon /> },
+   { segment: 'creer-demande', title: "Purchase Request", icon: <DashboardIcon /> },
+  { segment: 'validation-finance', title: 'Finance Approval', icon: <AccountBalanceWalletIcon /> },
    {
     segment: 'validation-chef',
-    title: 'Validation Chef',
+    title: 'Manager Approval',
     icon: <CheckCircleIcon />,
   },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
    {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
-  { segment: 'logout', title: 'Déconnexion', icon: <LogoutIcon color="error" /> },
+  { segment: 'logout', title: 'Logout', icon: <LogoutIcon color="error" /> },
 ];
 
 const NAV_DIRECTEUR = [
   { kind: 'header', title: 'Main Menu' },
-  // { segment: 'creer-demande', title: "Demande d'achat", icon: <DashboardIcon /> },
-  {
-    segment: 'mes-demandes-approuvees',
-    title: 'Bons de commande',
-    icon: <AssignmentTurnedInIcon color="success" />,
-  },
+  // { segment: 'creer-demande', title: "Purchase Request", icon: <DashboardIcon /> },
    {
     segment: 'validation-chef',
-    title: 'Validation Chef',
+    title: 'Manager Approval',
     icon: <CheckCircleIcon />,
   },
-  { segment: 'validation-directeur', title: 'Validation Directeur', icon: <FactCheckIcon /> },
-  { segment: 'historique', title: 'Historique', icon: <HistoryIcon /> },
+  { segment: 'validation-directeur', title: 'Director Approval', icon: <FactCheckIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
    {
   segment: 'change-password',
-  title: 'Changer le mot de passe',
+  title: 'Change Password',
   icon: <LockResetIcon color="secondary" />,
   },
-  { segment: 'logout', title: 'Déconnexion', icon: <LogoutIcon color="error" /> },
+  { segment: 'logout', title: 'Logout', icon: <LogoutIcon color="error" /> },
 ];
 
-// ─── Fonction pure pour choisir la navigation ───────────────────────────────
+const NAV_EMEA = [
+  { kind: 'header', title: 'Main Menu' },
+  { segment: 'creer-demande', title: "Purchase Request", icon: <DashboardIcon /> },
+  {
+    segment: 'validation-chef',
+    title: 'Manager Approval',
+    icon: <CheckCircleIcon />,
+  },
+  { segment: 'validation-emea', title: 'EMEA Approval', icon: <FactCheckIcon /> },
+  { segment: 'historique', title: 'Request Tracking', icon: <HistoryIcon /> },
+  {
+    segment: 'change-password',
+    title: 'Change Password',
+    icon: <LockResetIcon color="secondary" />,
+  },
+  { segment: 'logout', title: 'Logout', icon: <LogoutIcon color="error" /> },
+];
+
+// ─── Pure function to choose navigation ───────────────────────────────
 function getNavigationByRole(role) {
   const r = (role ?? '').toLowerCase().trim();
   switch (r) {
@@ -292,6 +276,7 @@ function getNavigationByRole(role) {
     case 'directeur': return NAV_DIRECTEUR;
     case 'achat1': return NAV_ACHAT1;
     case 'achat2': return NAV_ACHAT2;
+    case 'emea': return NAV_EMEA;
     default:          return NAV_EMPLOYE;
   }
 }
@@ -317,7 +302,7 @@ const Sidebar = ({ children, window: windowProp }) => {
   const { logout, user } = useAuth();
   const navigate         = useNavigate();
 
-  // FIX : si user n'est pas encore dans le contexte, on lit localStorage
+  // FIX : if user is not yet in context, read localStorage
   const resolvedUser = React.useMemo(() => {
     if (user) return user;
     try {
@@ -328,7 +313,7 @@ const Sidebar = ({ children, window: windowProp }) => {
     }
   }, [user]);
 
-  //  La navigation se recalcule dès que resolvedUser?.role change
+  //  Navigation recalculates whenever resolvedUser?.role changes
   const navigation = React.useMemo(
     () => getNavigationByRole(resolvedUser?.role),
     [resolvedUser?.role]
@@ -340,7 +325,7 @@ const Sidebar = ({ children, window: windowProp }) => {
       await logout();
       navigate('/');
     } else {
-      // item.href est fourni par Toolpad (chemin complet reconstruit depuis les segments)
+      // item.href is provided by Toolpad (full path reconstructed from segments)
       navigate(item.href ?? `/${item.segment}`);
     }
   };

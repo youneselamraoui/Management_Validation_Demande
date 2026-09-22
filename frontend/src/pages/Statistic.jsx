@@ -18,7 +18,7 @@ function ActiveUsersPage() {
         setactiveusers(data);
         setFilteredactiveusers(data);
       } catch (err) {
-        setError("Erreur chargement départements");  // ✅ now works
+        setError("Error loading departments");  // ✅ now works
         console.log(err);
       } finally {
         setLoading(false);
@@ -27,7 +27,7 @@ function ActiveUsersPage() {
     fetchActiveUser();
   }, []);
 
-  if (loading) return <p>Chargement...</p>;
+  if (loading) return <p>Loading...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
 
   return (

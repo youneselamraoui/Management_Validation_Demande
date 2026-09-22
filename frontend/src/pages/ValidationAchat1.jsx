@@ -1,11 +1,12 @@
 import {
   Box, Typography, Card, CardContent, Chip,
-  Button, Divider, Alert, Snackbar
+  Button, Divider, Alert, Snackbar, CircularProgress
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SearchIcon from "@mui/icons-material/Search";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
@@ -15,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 const ValidationAchat1 = () => {
   const [demandes, setDemandes]         = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
   const [snackbar, setSnackbar]         = useState({ open: false, message: "", severity: "success" });
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [Loading, setLoding] = useState(false);
@@ -36,13 +38,25 @@ const ValidationAchat1 = () => {
   const fetchDemandes = async () => {
     try {
       setLoding(true);
-      const res = await axios.get("http://localhost:5056/api/demandes/achat1", {
-        headers: { Authorization: `Bearer ${tokenRef.current}` }
-      });
-      setDemandes(res.data);
+      const [resDemandes, resFournisseurs] = await Promise.all([
+        axios.get("http://localhost:5056/api/demandes/achat1", {
+          headers: { Authorization: `Bearer ${tokenRef.current}` }
+        }),
+        axios.get("http://localhost:5056/api/Fournisseurs/actifs", {
+          headers: { Authorization: `Bearer ${tokenRef.current}` }
+        }).catch(() => ({ data: [] }))
+      ]);
+      setDemandes(resDemandes.data);
+      setFournisseurs(resFournisseurs.data || []);
     } catch (err) {
-      console.error("Erreur chargement demandes", err);
+      console.error("Error loading requests", err);
     } finally { setLoding(false); }
+  };
+
+  const getFournisseurNom = (id) => {
+    if (!id) return null;
+    const f = fournisseurs.find(x => String(x.id) === String(id));
+    return f ? f.nom : `Supplier #${id}`;
   };
 
   useEffect(() => {
@@ -62,14 +76,14 @@ const ValidationAchat1 = () => {
     <Sidebar>
       <Box sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom fontWeight={700}>
-           Service Achat — Recherche Fournisseurs
+           Purchasing — Supplier Search
         </Typography>
         <Typography variant="subtitle1" color="text.secondary" mb={3}>
-          Demandes validées en attente de devis
+          Approved requests awaiting quotes
         </Typography>
 
         {demandes.length === 0 ? (
-          <Alert severity="info">Aucune demande en attente de devis.</Alert>
+          <Alert severity="info">No requests awaiting quotes.</Alert>
         ) : (
           demandes.map((demande) => (
             <Card key={demande.id} sx={{ mb: 3 }}>
@@ -78,9 +92,9 @@ const ValidationAchat1 = () => {
                 {/* Header */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                   <Typography variant="h6" fontWeight={600}>
-                    Demande #{demande.id}
+                    Request #{demande.id}
                   </Typography>
-                  <Chip label="En attente de devis" color="warning" size="small" />
+                  <Chip label="Awaiting quotes" color="warning" size="small" />
                 </Box>
 
                 {/* Info */}
@@ -88,7 +102,7 @@ const ValidationAchat1 = () => {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <PersonIcon fontSize="small" />
                     <Typography variant="body2">
-                      <strong>{demande.utilisateur?.nom || "Inconnu"}</strong>
+                      <strong>{demande.utilisateur?.nom || "Unknown"}</strong>
                       {" "}({demande.utilisateur?.role || "—"})
                     </Typography>
                   </Box>
@@ -96,7 +110,7 @@ const ValidationAchat1 = () => {
                     <CalendarMonthIcon fontSize="small" />
                     <Typography variant="body2">
                       {demande.createdAt
-                        ? new Date(demande.createdAt).toLocaleDateString("fr-FR")
+                        ? new Date(demande.createdAt).toLocaleDateString("en-GB")
                         : "—"}
                     </Typography>
                   </Box>
@@ -108,36 +122,58 @@ const ValidationAchat1 = () => {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <CheckCircleIcon fontSize="small" color="success" />
                     <Typography variant="body2" color="success.main">
-                      {demande.utilisateur?.chefId ? "Validée par chef" : "Soumise directement"}
+                      {demande.utilisateur?.chefId ? "Approved by manager" : "Submitted directly"}
                     </Typography>
                   </Box>
                 </Box>
 
                 <Divider sx={{ mb: 2 }} />
 
-                {/* Articles */}
+                {/* Justification if supplier suggested */}
+                {demande.justification && demande.details?.some(d => d.fournisseurId) && (
+                  <Box sx={{ mb: 2, p: 1.5, bgcolor: "#e3f2fd", borderRadius: 2, border: "1px solid #90caf9" }}>
+                    <Typography variant="caption" fontWeight={700} color="primary">Requester justification:</Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{demande.justification}</Typography>
+                  </Box>
+                )}
+
+                {/* Items */}
                 <Typography variant="body2" fontWeight={600} mb={1}>
-                  Articles à rechercher :
+                  Items to search:
                 </Typography>
-                {demande.details?.map((d, i) => (
+                {demande.details?.map((d, i) => {
+                  const hasFournisseur = !!d.fournisseurId;
+                  return (
                   <Box key={i} sx={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    bgcolor: "#f8fafc",
+                    flexDirection: "column",
+                    bgcolor: hasFournisseur ? "#e3f2fd" : "#f8fafc",
                     px: 2, py: 1,
                     borderRadius: 2,
-                    mb: 1
+                    mb: 1,
+                    border: hasFournisseur ? "1px solid #90caf9" : "1px solid transparent"
                   }}>
-                    <Typography variant="body2">{d.article}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Quantité : {d.quantite}
-                    </Typography>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="body2" fontWeight={hasFournisseur ? 600 : 400}>{d.article}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Quantity: {d.quantite}
+                      </Typography>
+                    </Box>
+                    {hasFournisseur && (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
+                        <StorefrontIcon fontSize="small" color="info" />
+                        <Typography variant="caption" color="info.main" fontWeight={600}>
+                          Suggested supplier: {d.fournisseur?.nom || getFournisseurNom(d.fournisseurId)}
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
-                ))}
+                  );
+                })}
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Boutons */}
+                {/* Buttons */}
                 <Box sx={{ display: "flex", gap: 2 }}>
                     <Button
                       variant="contained"
@@ -145,13 +181,13 @@ const ValidationAchat1 = () => {
                       startIcon={<SearchIcon />}
                       onClick={() => navigate(`/recherche-devis/${demande.id}`)}
                     >
-                      Commencer la recherche
+                      Start Search
                     </Button>
                   <Button
                     variant="outlined"
                     onClick={() => setSelectedDemande(demande)}
                   >
-                    Voir détails
+                    View Details
                   </Button>
                 </Box>
 
@@ -160,7 +196,7 @@ const ValidationAchat1 = () => {
           ))
         )}
 
-        {/* Modal détails */}
+        {/* Details modal */}
         <DetailsDemande
           open={Boolean(selectedDemande)}
           onClose={() => setSelectedDemande(null)}

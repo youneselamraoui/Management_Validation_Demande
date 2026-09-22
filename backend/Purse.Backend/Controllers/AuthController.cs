@@ -30,12 +30,13 @@ namespace Purse.Backend.Controllers
             if (user == null)
                 return Unauthorized(new { message = "Email ou mot de passe incorrect" });
 
-            // Claims
+            // Claims - normalize role to lowercase for case-insensitive [Authorize(Roles=...)] (fixes 403 for EMEA stored as "EMEA")
+            var normalizedRole = user.Role?.ToLower().Trim() ?? "";
             var claims = new[]
             {
                 new Claim("id", user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Nom),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, normalizedRole)
             };
 
             // Clé secrète depuis appsettings.json

@@ -32,11 +32,11 @@ export default function GestionFournisseurs() {
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 100 },
-    { field: 'nom', headerName: 'Nom du fournisseur', width: 200 },
+    { field: 'nom', headerName: 'Supplier Name', width: 200 },
     { field: 'contact', headerName: 'Contact', width: 200 },
-    { field: 'adresse', headerName: 'Adresse', width: 250 },
-    { field: 'tel', headerName: 'Téléphone', width: 150 }, 
-    { field: 'active', headerName: 'Actif', width: 100 },
+    { field: 'adresse', headerName: 'Address', width: 250 },
+    { field: 'tel', headerName: 'Phone', width: 150 }, 
+    { field: 'active', headerName: 'Active', width: 100 },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -72,7 +72,7 @@ export default function GestionFournisseurs() {
         setFournisseurs(data);
         setFilteredFournisseurs(data);
       } catch (err) {
-        setError("Erreur chargement fournisseurs");
+        setError("Error loading suppliers");
         console.log(err);
       } finally {
         setLoading(false);
@@ -109,12 +109,12 @@ export default function GestionFournisseurs() {
       if (response.data.success) {
         setFournisseurs(prev => prev.filter(f => f.id !== deleteId));
         setFilteredFournisseurs(prev => prev.filter(f => f.id !== deleteId));
-        setSnackbarMessage("Fournisseur supprimé avec succès");
+        setSnackbarMessage("Supplier deleted successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || 'Échec de la suppression');
+      setSnackbarMessage(err.response?.data?.message || 'Deletion failed');
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -128,24 +128,24 @@ export default function GestionFournisseurs() {
     setDeleteId(null);
   };
 
-  if (loading) return <div>Chargement des fournisseurs...</div>;
+  if (loading) return <div>Loading suppliers...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <Sidebar initialPath="/settings/fournisseurs">
       <Box m="30px">
-        <Header title="Gestion des Fournisseurs" subtitle="Liste des fournisseurs" />
+        <Header title="Supplier Management" subtitle="List of suppliers" />
         <Box mt="25px" height="55vh">
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               variant="outlined"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchText}
               onChange={handleSearch}
               fullWidth
             />
             <Button variant="contained" onClick={handleAddClick}>
-              Ajouter Fournisseur
+              Add Supplier
             </Button>
           </Box>
 
@@ -160,10 +160,10 @@ export default function GestionFournisseurs() {
           />
 
           <Dialog open={openDialog} onClose={handleCancelDelete}>
-            <DialogTitle>Supprimer ce fournisseur ?</DialogTitle>
+            <DialogTitle>Delete this supplier?</DialogTitle>
             <DialogActions>
-              <Button onClick={handleCancelDelete}>Annuler</Button>
-              <Button onClick={handleConfirmDelete} color="error">Supprimer</Button>
+              <Button onClick={handleCancelDelete}>Cancel</Button>
+              <Button onClick={handleConfirmDelete} color="error">Delete</Button>
             </DialogActions>
           </Dialog>
 

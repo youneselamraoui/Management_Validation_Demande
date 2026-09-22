@@ -32,20 +32,20 @@ export default function GestionCapex() {
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 80 },
-    { field: 'nomCapex', headerName: 'Nom du Capex', width: 220 },
+    { field: 'nomCapex', headerName: 'Capex Name', width: 220 },
     {
       field: 'budgetTotal',
-      headerName: 'Budget Total',
+      headerName: 'Total Budget',
       width: 160,
-      renderCell: (params) => `${params.value?.toLocaleString('fr-FR')}`,
+      renderCell: (params) => `${params.value?.toLocaleString('en-GB')}`,
     },
     {
       field: 'budgetRestant',
-      headerName: 'Budget Restant',
+      headerName: 'Remaining Budget',
       width: 160,
-      renderCell: (params) => `${params.value?.toLocaleString('fr-FR')}`,
+      renderCell: (params) => `${params.value?.toLocaleString('en-GB')}`,
     },
-    { field: 'devis', headerName: 'Devise', width: 150 },
+    { field: 'devis', headerName: 'Currency', width: 150 },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -81,7 +81,7 @@ export default function GestionCapex() {
         setCapexList(data);
         setFilteredCapex(data);
       } catch (err) {
-        setError("Erreur chargement Capex");
+        setError("Error loading Capex");
         console.log(err);
       } finally {
         setLoading(false);
@@ -118,12 +118,12 @@ export default function GestionCapex() {
       if (response.data.success) {
         setCapexList(prev => prev.filter(cap => cap.id !== deleteId));
         setFilteredCapex(prev => prev.filter(cap => cap.id !== deleteId));
-        setSnackbarMessage("Capex supprimé avec succès");
+        setSnackbarMessage("Capex deleted successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || 'Échec de la suppression');
+      setSnackbarMessage(err.response?.data?.message || 'Deletion failed');
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -137,24 +137,24 @@ export default function GestionCapex() {
     setDeleteId(null);
   };
 
-  if (loading) return <div>Chargement des Capex...</div>;
+  if (loading) return <div>Loading Capex...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <Sidebar initialPath="/settings/capex">
       <Box m="30px">
-        <Header title="Gestion des Capex" subtitle="Liste des Capex" />
+        <Header title="Capex Management" subtitle="List of Capex" />
         <Box mt="25px" height="55vh">
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               variant="outlined"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchText}
               onChange={handleSearch}
               fullWidth
             />
             <Button variant="contained" onClick={handleAddClick}>
-              Ajouter Capex
+              Add Capex
             </Button>
           </Box>
 
@@ -169,10 +169,10 @@ export default function GestionCapex() {
           />
 
           <Dialog open={openDialog} onClose={handleCancelDelete}>
-            <DialogTitle>Supprimer ce Capex ?</DialogTitle>
+            <DialogTitle>Delete this Capex?</DialogTitle>
             <DialogActions>
-              <Button onClick={handleCancelDelete}>Annuler</Button>
-              <Button onClick={handleConfirmDelete} color="error">Supprimer</Button>
+              <Button onClick={handleCancelDelete}>Cancel</Button>
+              <Button onClick={handleConfirmDelete} color="error">Delete</Button>
             </DialogActions>
           </Dialog>
 

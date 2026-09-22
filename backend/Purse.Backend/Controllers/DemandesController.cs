@@ -25,18 +25,19 @@ namespace Purse.Backend.Controllers
         }
 
         // ─── Créer une demande ───────────────────────────────────────────────
-        // Workflow complet validé (spec utilisateur 18/09/2026) :
-        // 1) employe -> Chef (chef|achat2|finance|directeur selon ChefId) -> achat1 (insertion prix) -> achat2 -> Chef (2e validation) -> finance -> directeur -> Bon de commande
-        // 2) achat1   -> Chef (achat2) -> achat1 -> achat2 -> finance -> directeur -> Bon de commande
-        // 3) chef      -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
-        // 4) achat2    -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
-        // 5) finance   -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
-        // 6) directeur -> achat1 -> achat2 -> finance -> directeur -> Bon de commande (sans Chef)
+        // Workflow complet EMEA (spec 22/09/2026) :
+        // 1) employe -> Chef (chef|achat2|finance|directeur|emea) -> achat1 (prix) -> achat2 -> Chef (2e) -> finance -> directeur -> En attente insertion SAP (achat1 insert fichier SAP+commentaire+RFX) -> En attente validation EMEA -> Bon de commande (PO auto)
+        // 2) achat1   -> Chef (achat2) -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
+        // 3) chef      -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
+        // 4) achat2    -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
+        // 5) finance   -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
+        // 6) directeur -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
+        // 7) emea      -> achat1 -> achat2 -> finance -> directeur -> SAP -> EMEA -> BC
         // Note : employe = seul rôle avec double passage Chef (avant et après achat2). Tous les autres : 1 seul Chef ou 0 Chef.
-        // Le Chef peut être de rôle chef, achat2, finance ou directeur (EstExempteChef + GetDemandesChef autorise ces rôles comme valideur Chef si ChefId pointe vers eux).
+        // Le Chef peut être de rôle chef, achat2, finance, directeur, emea (EstExempteChef + GetDemandesChef autorise ces rôles comme valideur Chef si ChefId pointe vers eux).
         private static readonly HashSet<string> RolesSansChef = new(StringComparer.OrdinalIgnoreCase)
         {
-            "chef", "achat2", "finance", "directeur", "admin"
+            "chef", "achat2", "finance", "directeur", "emea", "admin"
         };
 
         private static bool EstExempteChef(string? role) => !string.IsNullOrEmpty(role) && RolesSansChef.Contains(role.Trim());
@@ -56,6 +57,14 @@ namespace Purse.Backend.Controllers
                 .FirstOrDefault(u => u.Id == userId);
 
             if (user == null) return NotFound("Utilisateur introuvable");
+
+            // ─── Validation : justification obligatoire si un fournisseur est suggéré ───
+            bool fournisseurChoisi = dto.Details != null && dto.Details.Any(d => d.FournisseurId != null);
+            if (fournisseurChoisi && string.IsNullOrWhiteSpace(dto.Justification))
+            {
+                return BadRequest(new { message = "La justification est obligatoire lorsque vous sélectionnez un fournisseur." });
+            }
+
             string? fichierPath = null;
             if (dto.Fichier != null)
             {
@@ -206,13 +215,132 @@ namespace Purse.Backend.Controllers
 
         }
 
+        private Dictionary<string, string> GetFournisseurNomMap()
+        {
+            try { return _context.Fournisseurs.AsNoTracking().ToDictionary(f => f.Id.ToString(), f => f.Nom); }
+            catch { return new Dictionary<string, string>(); }
+        }
+
+        private int GetNextProvisionalBase()
+        {
+            try
+            {
+                var lastPoStr = _context.BonCommandes.AsNoTracking().OrderByDescending(b => b.Id).Select(b => b.Po).FirstOrDefault();
+                int num = 1;
+                if (!string.IsNullOrEmpty(lastPoStr))
+                {
+                    var parts = lastPoStr.Split('-');
+                    bool parsed = false;
+                    foreach (var p in parts)
+                    {
+                        if (int.TryParse(p, out var n)) { num = n + 1; parsed = true; break; }
+                        var digits = new string(p.Where(char.IsDigit).ToArray());
+                        if (!string.IsNullOrEmpty(digits) && int.TryParse(digits, out var nd)) { num = nd + 1; parsed = true; break; }
+                    }
+                    if (!parsed)
+                    {
+                        var allDigits = new string(lastPoStr.Where(char.IsDigit).ToArray());
+                        if (int.TryParse(allDigits, out var allN)) num = allN + 1;
+                    }
+                }
+                return num;
+            }
+            catch { return 1; }
+        }
+        private string GetNextProvisionalPo() => $"{GetNextProvisionalBase()}-1";
+
         // ─── Select anonyme réutilisable ────────────────────────────────────
+        private object MapDemandeEnrichi(Demande d, Dictionary<string, string>? fMap = null, string? provisionalPoOverride = null)
+        {
+            fMap ??= GetFournisseurNomMap();
+            // Po provisoire pour EMEA (non persisté) - passed by caller to avoid concurrent DbContext query during enumeration
+            string? provisionalPo = provisionalPoOverride;
+            if (provisionalPo == null && (d.Statut == "En attente validation EMEA" || d.Statut == "En attente insertion SAP"))
+            {
+                // fallback: if caller didn't provide, try isolated query (may be null if concurrent, but caller should provide)
+                try { provisionalPo = GetNextProvisionalPo(); } catch { provisionalPo = null; }
+            }
+            return new
+            {
+                d.Id,
+                d.Statut,
+                d.CreatedAt,
+                d.Commentaire,
+                d.CommentaireSAP,
+                d.Justification,
+                d.CapexId,
+                d.DateValidationAchat1,
+                d.DateValidationAchat2,
+                d.DateValidateChef,
+                d.DateValidateFinance,
+                d.DateValidateDirecteur,
+                d.DateInsertionSAP,
+                d.DateValidationEMEA,
+                d.RFX,
+                d.CheminDevis,
+                d.CheminDevis2,
+                d.CheminDevis3,
+                d.CheminSAP,
+                d.FichierPath,
+                d.InfoMessage,
+                d.InfoReponse,
+                d.InfoDemandeParRole,
+                d.InfoDemandeParUserId,
+                d.InfoDemandeDate,
+                d.InfoReponseDate,
+                d.StatutAvantInfo,
+                ProvisionalPo = provisionalPo,
+                Capex = d.Capex == null ? null : new
+                {
+                    d.Capex.Id,
+                    d.Capex.NomCapex
+                },
+                Utilisateur = d.Utilisateur == null ? null : new
+                {
+                    d.Utilisateur.Id,
+                    d.Utilisateur.Nom,
+                    d.Utilisateur.Email,
+                    d.Utilisateur.ChefId,
+                    d.Utilisateur.Role,
+                    ChefNom = d.Utilisateur.Chef?.Nom,
+                    Departement = d.Utilisateur.Departement?.Nom,
+                },
+                Details = d.Details.Select(x =>
+                {
+                    string? fNom = null;
+                    if (x.Fournisseur != null) fNom = x.Fournisseur.Nom;
+                    else if (x.FournisseurId != null && fMap.TryGetValue(x.FournisseurId.ToString()!, out var nom)) fNom = nom;
+                    return new
+                    {
+                        x.Id,
+                        x.Article,
+                        x.Quantite,
+                        x.Prix,
+                        x.Devis,
+                        x.FournisseurId,
+                        Fournisseur = fNom == null ? null : new
+                        {
+                            Id = x.FournisseurId,
+                            Nom = fNom
+                        }
+                    };
+                }),
+                bonsCommandes = d.BonsCommande.Select(b => new
+                {
+                    b.Id,
+                    b.Po,
+                    b.DateCreation
+                }),
+            };
+        }
+
         private static object MapDemande(Demande d) => new
         {
             d.Id,
             d.Statut,
             d.CreatedAt,
             d.Commentaire,
+            d.CommentaireSAP,
             d.Justification,
             d.CapexId,
             d.DateValidationAchat1,
@@ -220,11 +348,21 @@ namespace Purse.Backend.Controllers
             d.DateValidateChef,
             d.DateValidateFinance,
             d.DateValidateDirecteur,
+            d.DateInsertionSAP,
+            d.DateValidationEMEA,
             d.RFX,
             d.CheminDevis,
             d.CheminDevis2,
             d.CheminDevis3,
+            d.CheminSAP,
             d.FichierPath,
+            d.InfoMessage,
+            d.InfoReponse,
+            d.InfoDemandeParRole,
+            d.InfoDemandeParUserId,
+            d.InfoDemandeDate,
+            d.InfoReponseDate,
+            d.StatutAvantInfo,
             Capex = d.Capex == null ? null : new
             {
                 d.Capex.Id,
@@ -265,9 +403,9 @@ namespace Purse.Backend.Controllers
 
         // ─── GET /chef ───────────────────────────────────────────────────────
         // Chef au sens large : employé dont le ChefId pointe vers l'utilisateur connecté.
-        // Par spec : chef, achat2, finance, directeur sont tous des chefs potentiels.
+        // Par spec : chef, achat2, finance, directeur, emea sont tous des chefs potentiels.
         [HttpGet("chef")]
-        [Authorize(Roles = "chef,achat2,finance,directeur,admin")]
+        [Authorize(Roles = "chef,achat2,finance,directeur,emea,admin")]
         public IActionResult GetDemandesChef()
         {
             var userIdClaim = User.FindFirst("id")?.Value;
@@ -286,11 +424,22 @@ namespace Purse.Backend.Controllers
                     d.Utilisateur.ChefId == userId &&
                     d.Statut == "En attente validation chef");
 
-            var demandes = query
+            var fMap0 = GetFournisseurNomMap();
+            var baseNum0 = GetNextProvisionalBase();
+            var list0 = query
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
                 .ToList();
+            int idx0 = 0;
+            var demandes = list0.Select(d =>
+            {
+                string? po = null;
+                if (d.Statut == "En attente validation EMEA" || d.Statut == "En attente insertion SAP")
+                {
+                    po = $"{baseNum0 + idx0}-1";
+                    idx0++;
+                }
+                return MapDemandeEnrichi(d, fMap0, po);
+            }).ToList();
 
             return Ok(demandes);
         }
@@ -300,11 +449,13 @@ namespace Purse.Backend.Controllers
         [Authorize(Roles = "achat1,admin")]
         public IActionResult GetDemandesAchat1()
         {
+            var fMap = GetFournisseurNomMap();
+            // no provisional needed for achat1, but pass null
             var demandes = IncludeAll(_context.Demandes)
                 .Where(d => d.Statut == "En attente validation achat1")
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
+                .ToList()
+                .Select(d => MapDemandeEnrichi(d, fMap, null))
                 .ToList();
 
             return Ok(demandes);
@@ -355,9 +506,39 @@ namespace Purse.Backend.Controllers
             return Ok(demandes);
         }
 
+        // ─── GET /sap-insertion (achat1) ────────────────────────────────────
+        [HttpGet("sap-insertion")]
+        [Authorize(Roles = "achat1,admin")]
+        public IActionResult GetDemandesSapInsertion()
+        {
+            var fMap = GetFournisseurNomMap();
+            var baseNumSap = GetNextProvisionalBase();
+            var listSap = IncludeAll(_context.Demandes)
+                .Where(d => d.Statut == "En attente insertion SAP")
+                .OrderBy(d => d.CreatedAt)
+                .ToList();
+            var demandes = listSap.Select((d, idx) => MapDemandeEnrichi(d, fMap, $"{baseNumSap + idx}-1")).ToList();
+            return Ok(demandes);
+        }
+
+        // ─── GET /emea ───────────────────────────────────────────────────────
+        [HttpGet("emea")]
+        [Authorize(Roles = "emea,admin")]
+        public IActionResult GetDemandesEmea()
+        {
+            var fMap = GetFournisseurNomMap();
+            var baseNumEmea = GetNextProvisionalBase();
+            var listEmea = IncludeAll(_context.Demandes)
+                .Where(d => d.Statut == "En attente validation EMEA")
+                .OrderBy(d => d.CreatedAt)
+                .ToList();
+            var demandes = listEmea.Select((d, idx) => MapDemandeEnrichi(d, fMap, $"{baseNumEmea + idx}-1")).ToList();
+            return Ok(demandes);
+        }
+
         // ─── PUT /{id}/statut ────────────────────────────────────────────────
         [HttpPut("{id}/statut")]
-        [Authorize(Roles = "chef,achat1,achat2,finance,directeur,admin")]
+        [Authorize(Roles = "chef,achat1,achat2,finance,directeur,emea,admin")]
         public IActionResult UpdateStatut(int id, [FromBody] UpdateStatutDto dto)
         {
             var demande = _context.Demandes
@@ -392,7 +573,7 @@ namespace Purse.Backend.Controllers
             // - chef|achat2|finance|directeur : achat1 -> achat2 -> finance -> directeur (pas de chef, EstExempteChef=true)
             // Les rôles achat2/finance/directeur peuvent valider en tant que chef s'ils sont ChefId du demandeur (estChefDuDemandeur).
             // isSecondChefPassage = true uniquement après que achat1 ET achat2 aient posé leurs dates -> déclenche le 2e passage chef vers finance.
-            bool estChefLike = roleClaim is "chef" or "achat2" or "finance" or "directeur";
+            bool estChefLike = roleClaim is "chef" or "achat2" or "finance" or "directeur" or "emea";
             string? nouveauStatut = null;
             bool estChefDuDemandeur = demande.Utilisateur?.ChefId == currentUserId;
             var roleCreateur = demande.Utilisateur?.Role?.ToLower().Trim();
@@ -403,11 +584,11 @@ namespace Purse.Backend.Controllers
             nouveauStatut = (statutAvant, roleClaim, action) switch
             {
                 // 1er ou 2e passage chef -> distinction pour la destination
-                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && !isSecondChefPassage => "En attente validation achat1",
-                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && isSecondChefPassage => "En attente confirmation finance",
+                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "emea") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && !isSecondChefPassage => "En attente validation achat1",
+                ("En attente validation chef", var r, "valider") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "emea") && (estChefDuDemandeur || r == "admin" || roleClaim == "admin") && isSecondChefPassage => "En attente confirmation finance",
                 ("En attente validation chef", "admin", "valider") when !isSecondChefPassage => "En attente validation achat1",
                 ("En attente validation chef", "admin", "valider") when isSecondChefPassage => "En attente confirmation finance",
-                ("En attente validation chef", var r, "refuser") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "admin") && (estChefDuDemandeur || r == "admin") => "Refusé chef",
+                ("En attente validation chef", var r, "refuser") when (r == "chef" || r == "achat2" || r == "finance" || r == "directeur" || r == "emea" || r == "admin") && (estChefDuDemandeur || r == "admin") => "Refusé chef",
 
                 ("En attente validation achat1", "achat1", "valider") => "En attente validation achat2",
                 ("En attente validation achat1", "admin", "valider") => "En attente validation achat2",
@@ -427,10 +608,15 @@ namespace Purse.Backend.Controllers
                 ("En attente confirmation finance", "finance", "refuser") => "Refusé finance",
                 ("En attente confirmation finance", "admin", "refuser") => "Refusé finance",
 
-                ("En attente validation directeur", "directeur", "valider") => "Bon de commande",
-                ("En attente validation directeur", "admin", "valider") => "Bon de commande",
+                ("En attente validation directeur", "directeur", "valider") => "En attente insertion SAP",
+                ("En attente validation directeur", "admin", "valider") => "En attente insertion SAP",
                 ("En attente validation directeur", "directeur", "refuser") => "Refusé directeur",
                 ("En attente validation directeur", "admin", "refuser") => "Refusé directeur",
+
+                ("En attente validation EMEA", "emea", "valider") => "Bon de commande",
+                ("En attente validation EMEA", "admin", "valider") => "Bon de commande",
+                ("En attente validation EMEA", "emea", "refuser") => "Refusé EMEA",
+                ("En attente validation EMEA", "admin", "refuser") => "Refusé EMEA",
                 _ => null
             };
 
@@ -475,6 +661,9 @@ namespace Purse.Backend.Controllers
             if (roleClaim == "directeur" && action == "valider")
                 demande.DateValidateDirecteur = DateTime.Now;
 
+            if (roleClaim == "emea" && action == "valider")
+                demande.DateValidationEMEA = DateTime.Now;
+
             // Admin pose aussi les dates selon le statut traversé
             if (roleClaim == "admin" && action == "valider")
             {
@@ -485,6 +674,7 @@ namespace Purse.Backend.Controllers
                     case "En attente validation achat2": demande.DateValidationAchat2 = DateTime.Now; break;
                     case "En attente confirmation finance": demande.DateValidateFinance = DateTime.Now; break;
                     case "En attente validation directeur": demande.DateValidateDirecteur = DateTime.Now; break;
+                    case "En attente validation EMEA": demande.DateValidationEMEA = DateTime.Now; break;
                 }
             }
             //  Si refus → réintégrer le montant réservé dans le budget du Capex
@@ -613,18 +803,62 @@ namespace Purse.Backend.Controllers
                     }
                     break;
 
+                case "En attente insertion SAP":
+                    {
+                        var achat1User = _context.Utilisateurs.FirstOrDefault(u => u.Role == "achat1" && u.Active == true);
+                        if (achat1User != null && !string.IsNullOrEmpty(achat1User.Email))
+                        {
+                            _emailService.SendNotification(achat1User.Email,
+                                $"Insertion SAP requise – demande #{id}",
+                                $"La demande <b>#{id}</b> a été validée par le directeur et attend l'insertion SAP (fichier + RFX + commentaire).");
+                            if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
+                            {
+                                DemandeId = id,
+                                UtilisateurId = achat1User.Id,
+                                Message = $"Demande #{id} en attente insertion SAP",
+                                DateEnvoi = DateTime.Now,
+                                Demande = demande,
+                                Utilisateur = achat1User
+                            });
+                        }
+                    }
+                    break;
+
+                case "En attente validation EMEA":
+                    {
+                        var emeaUser = _context.Utilisateurs.FirstOrDefault(u => u.Role.ToLower() == "emea" && u.Active == true);
+                        if (emeaUser != null && !string.IsNullOrEmpty(emeaUser.Email))
+                        {
+                            _emailService.SendNotification(emeaUser.Email,
+                                $"Validation EMEA requise – demande #{id}",
+                                $"La demande <b>#{id}</b> a été insérée SAP et attend votre validation. RFX: {demande.RFX}");
+                            if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
+                            {
+                                DemandeId = id,
+                                UtilisateurId = emeaUser.Id,
+                                Message = $"Demande #{id} en attente validation EMEA",
+                                DateEnvoi = DateTime.Now,
+                                Demande = demande,
+                                Utilisateur = emeaUser
+                            });
+                        }
+                    }
+                    break;
+
                 case "Bon de commande":
+                    // Génération automatique des PO lors du passage en Bon de commande via EMEA
+                    try { GenererBonsCommande(demande); } catch (Exception ex) { Console.WriteLine($"[ERROR] GenererBonsCommande echoue: {ex.Message}"); }
                     if (demande.Utilisateur != null && !string.IsNullOrEmpty(demande.Utilisateur.Email) && demande.Utilisateur.Active == true)
                     {
                         _emailService.SendNotification(demande.Utilisateur.Email,
                             $"✅ Demande #{id} approuvée",
-                            $"Votre demande <b>#{id}</b> a été approuvée par le directeur et est passée en <b>Bon de commande</b>.");
+                            $"Votre demande <b>#{id}</b> a été approuvée par EMEA et est passée en <b>Bon de commande</b>. PO généré(s).");
 
                         if (NotificationsPersistanceActive) _context.Notifications.Add(new Notification
                         {
                             DemandeId = id,
                             UtilisateurId = demande.UtilisateurId,
-                            Message = $"Demande #{id} approuvée - Bon de commande",
+                            Message = $"Demande #{id} approuvée - Bon de commande (EMEA)",
                             DateEnvoi = DateTime.Now,
                             Demande = demande,
                             Utilisateur = demande.Utilisateur
@@ -638,6 +872,7 @@ namespace Purse.Backend.Controllers
                 case "Refusé achat2":
                 case "Refusé finance":
                 case "Refusé directeur":
+                case "Refusé EMEA":
                     if (demande.Utilisateur != null && !string.IsNullOrEmpty(demande.Utilisateur.Email) && demande.Utilisateur.Active == true)
                     {
                         _emailService.SendNotification(demande.Utilisateur.Email,
@@ -688,9 +923,11 @@ namespace Purse.Backend.Controllers
         {
             "En attente validation chef" => isFirstChefValidation ? "En attente validation achat1" : "En attente confirmation finance",
             "En attente validation achat1" => "En attente validation achat2",
-            "En attente validation achat2" => "En attente validation chef", // legacy employe ; non-employe géré dans switch principal
+            "En attente validation achat2" => "En attente validation chef",
             "En attente confirmation finance" => "En attente validation directeur",
-            "En attente validation directeur" => "Bon de commande",
+            "En attente validation directeur" => "En attente insertion SAP",
+            "En attente insertion SAP" => "En attente validation EMEA",
+            "En attente validation EMEA" => "Bon de commande",
             _ => statutActuel
         };
 
@@ -701,8 +938,56 @@ namespace Purse.Backend.Controllers
             "En attente validation achat2" => "Refusé achat2",
             "En attente confirmation finance" => "Refusé finance",
             "En attente validation directeur" => "Refusé directeur",
+            "En attente validation EMEA" => "Refusé EMEA",
             _ => statutActuel
         };
+
+        private void GenererBonsCommande(Demande demande)
+        {
+            if (demande.BonsCommande.Any()) return; // déjà généré
+            var fournisseurs = demande.Details
+                .Where(d => d.FournisseurId != null)
+                .GroupBy(d => d.FournisseurId)
+                .ToList();
+            var lastPo = _context.BonCommandes.OrderByDescending(b => b.Id).FirstOrDefault();
+            int numeroDemande = 1;
+            if (lastPo != null && !string.IsNullOrEmpty(lastPo.Po))
+            {
+                var lastNumero = int.Parse(lastPo.Po.Split('-')[0]);
+                numeroDemande = lastNumero + 1;
+            }
+            int compteur = 1;
+            if (fournisseurs.Count == 0)
+            {
+                var fallbackFournisseurId = _context.Fournisseurs.Select(f => (int?)f.Id).FirstOrDefault();
+                if (fallbackFournisseurId != null)
+                {
+                    _context.BonCommandes.Add(new BonCommande
+                    {
+                        DemandeId = demande.Id,
+                        Demande = demande,
+                        Po = $"{numeroDemande}-{compteur}",
+                        DateCreation = DateTime.Now,
+                        FournisseurId = fallbackFournisseurId,
+                    });
+                }
+            }
+            else
+            {
+                foreach (var group in fournisseurs)
+                {
+                    _context.BonCommandes.Add(new BonCommande
+                    {
+                        DemandeId = demande.Id,
+                        Demande = demande,
+                        Po = $"{numeroDemande}-{compteur}",
+                        DateCreation = DateTime.Now,
+                        FournisseurId = group.Key,
+                    });
+                    compteur++;
+                }
+            }
+        }
 
         [HttpGet("{id}")]
         [Authorize]
@@ -715,7 +1000,8 @@ namespace Purse.Backend.Controllers
 
             if (demande == null) return NotFound();
 
-            return Ok(MapDemande(demande));
+            var nextPoForDemande = (demande.Statut == "En attente validation EMEA" || demande.Statut == "En attente insertion SAP") ? GetNextProvisionalPo() : null;
+            return Ok(MapDemandeEnrichi(demande, null, nextPoForDemande));
         }
         [HttpPut("{id}/details")]
         [Authorize(Roles = "achat1,admin")]
@@ -767,53 +1053,76 @@ namespace Purse.Backend.Controllers
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
         {
-            var query = IncludeAll(_context.Demandes);
-            var userIdStr = User.FindFirst("id")?.Value;
-            if (string.IsNullOrEmpty(userIdStr)) return Unauthorized();
-            int userIdClaim = int.Parse(userIdStr);
-
-            var role = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower().Trim();
-
-            if (role == "employe")
+            try
             {
-                query = query.Where(d => d.UtilisateurId == userIdClaim);
-                utilisateurId = null;
+                if (page < 1) page = 1;
+                if (pageSize < 1) pageSize = 10;
+                if (pageSize > 100) pageSize = 100;
+
+                var query = IncludeAll(_context.Demandes);
+                var userIdStr = User.FindFirst("id")?.Value;
+                if (string.IsNullOrEmpty(userIdStr)) return Unauthorized();
+                int userIdClaim = int.Parse(userIdStr);
+
+                var role = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower().Trim();
+
+                if (role == "employe")
+                {
+                    query = query.Where(d => d.UtilisateurId == userIdClaim);
+                    utilisateurId = null;
+                }
+                else if (role == "chef")
+                {
+                    var userDeptId = _context.Utilisateurs
+                        .Where(u => u.Id == userIdClaim)
+                        .Select(u => u.DepartementId)
+                        .FirstOrDefault();
+
+                    query = query.Where(d => d.Utilisateur != null && d.Utilisateur.DepartementId == userDeptId);
+                    departementId = null;
+                }
+
+                if (!string.IsNullOrEmpty(statut))
+                    query = query.Where(d => d.Statut == statut);
+                if (sansCapex == true)
+                    query = query.Where(d => d.CapexId == null);
+                else if (capexId.HasValue)
+                    query = query.Where(d => d.CapexId == capexId);
+                if (departementId.HasValue)
+                    query = query.Where(d => d.Utilisateur != null && d.Utilisateur.DepartementId == departementId);
+                if (utilisateurId.HasValue)
+                    query = query.Where(d => d.UtilisateurId == utilisateurId);
+                if (date.HasValue)
+                    query = query.Where(d => d.CreatedAt.Date == date.Value.Date);
+
+                var total = query.Count();
+
+                var fMapH = GetFournisseurNomMap();
+                var baseNumH = GetNextProvisionalBase();
+                var pageList = query
+                    .OrderByDescending(d => d.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+                int idxH = 0;
+                var demandes = pageList.Select(d =>
+                {
+                    string? po = null;
+                    if (d.Statut == "En attente validation EMEA" || d.Statut == "En attente insertion SAP")
+                    {
+                        po = $"{baseNumH + idxH}-1";
+                        idxH++;
+                    }
+                    return MapDemandeEnrichi(d, fMapH, po);
+                }).ToList();
+
+                return Ok(new { data = demandes, total, page, pageSize });
             }
-            else if (role == "chef")
+            catch (Exception ex)
             {
-                var userDeptId = _context.Utilisateurs
-                    .Where(u => u.Id == userIdClaim)
-                    .Select(u => u.DepartementId)
-                    .FirstOrDefault();
-
-                query = query.Where(d => d.Utilisateur != null && d.Utilisateur.DepartementId == userDeptId);
-                departementId = null;
+                Console.WriteLine($"[ERROR] GetHistorique failed: {ex.Message} | Inner: {ex.InnerException?.Message}");
+                return StatusCode(500, new { message = "Erreur lors du chargement de l'historique", erreur = ex.InnerException?.Message ?? ex.Message });
             }
-
-            if (!string.IsNullOrEmpty(statut))
-                query = query.Where(d => d.Statut == statut);
-            if (sansCapex == true)
-                query = query.Where(d => d.CapexId == null);
-            else if (capexId.HasValue)
-                query = query.Where(d => d.CapexId == capexId);
-            if (departementId.HasValue)
-                query = query.Where(d => d.Utilisateur != null && d.Utilisateur.DepartementId == departementId);
-            if (utilisateurId.HasValue)
-                query = query.Where(d => d.UtilisateurId == utilisateurId);
-            if (date.HasValue)
-                query = query.Where(d => d.CreatedAt.Date == date.Value.Date);
-
-            var total = query.Count();
-
-            var demandes = query
-                .OrderByDescending(d => d.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .AsEnumerable()
-                .Select(MapDemande)
-                .ToList();
-
-            return Ok(new { data = demandes, total, page, pageSize });
         }
         // ─── GET /mes-bons ───────────────────────────────────────────────────────
         // Retourne uniquement les "Bon de commande" de l'utilisateur connecté
@@ -825,16 +1134,16 @@ namespace Purse.Backend.Controllers
             if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
             int userId = int.Parse(userIdClaim);
 
+            var fMapB = GetFournisseurNomMap();
             var demandes = IncludeAll(_context.Demandes)
                 .Include(d => d.Details)
                 // ThenInclude Fournisseur désactivé : [NotMapped]
                 .Where(d =>
                     d.UtilisateurId == userId &&
-                    d.Statut == "Bon de commande" &&
-                    string.IsNullOrEmpty(d.RFX)) //  seulement celles sans RFX
+                    d.Statut == "Bon de commande")
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
+                .ToList()
+                .Select(d => MapDemandeEnrichi(d, fMapB, null))
                 .ToList();
 
             return Ok(demandes);
@@ -965,6 +1274,54 @@ namespace Purse.Backend.Controllers
                 montantReserve = demande.MontantReserve
             });
         }
+        // ─── POST /{id}/insert-sap — Achat1 insère fichier SAP + RFX + commentaire ──
+        [HttpPost("{id}/insert-sap")]
+        [Authorize(Roles = "achat1,admin")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> InsertSap(int id, [FromForm] IFormFile file, [FromForm] string rfx, [FromForm] string commentaire)
+        {
+            if (file == null || file.Length == 0) return BadRequest(new { message = "Fichier SAP manquant." });
+            if (string.IsNullOrWhiteSpace(rfx)) return BadRequest(new { message = "RFX obligatoire." });
+            if (string.IsNullOrWhiteSpace(commentaire)) return BadRequest(new { message = "Commentaire obligatoire." });
+
+            var demande = _context.Demandes
+                .Include(d => d.Details)
+                .FirstOrDefault(d => d.Id == id);
+            if (demande == null) return NotFound("Demande introuvable");
+            if (demande.Statut != "En attente insertion SAP")
+                return BadRequest(new { message = $"Statut invalide: {demande.Statut}. Attendu: En attente insertion SAP" });
+
+            var folder = Path.Combine("wwwroot", "uploads", "sap");
+            Directory.CreateDirectory(folder);
+            // Nom fichier basé sur RFX ou Po provisoire
+            var ext = Path.GetExtension(file.FileName);
+            var fileName = $"sap_{id}_{Guid.NewGuid()}{ext}";
+            var path = Path.Combine(folder, fileName);
+            using var stream = new FileStream(path, FileMode.Create);
+            await file.CopyToAsync(stream);
+
+            var chemin = $"/uploads/sap/{fileName}";
+            demande.CheminSAP = chemin;
+            demande.RFX = rfx.Trim();
+            demande.CommentaireSAP = commentaire.Trim();
+            demande.Commentaire = commentaire.Trim(); // compat
+            demande.DateInsertionSAP = DateTime.Now;
+            demande.Statut = "En attente validation EMEA";
+            demande.UpdatedAt = DateTime.Now;
+
+            // Email EMEA
+            var emeaUser = _context.Utilisateurs.FirstOrDefault(u => u.Role.ToLower() == "emea" && u.Active == true);
+            if (emeaUser != null && !string.IsNullOrEmpty(emeaUser.Email))
+            {
+                _emailService.SendNotification(emeaUser.Email,
+                    $"Nouvelle demande #{id} - validation EMEA requise",
+                    $"La demande <b>#{id}</b> a été insérée SAP (RFX: {rfx}) et attend votre validation.<br>Commentaire achat1: {System.Net.WebUtility.HtmlEncode(commentaire)}");
+            }
+
+            _context.SaveChanges();
+            return Ok(new { message = "Insertion SAP réussie", statut = demande.Statut, cheminSAP = chemin, rfx = demande.RFX });
+        }
+
         [HttpPost("{id}/upload-devis")]
         [Authorize(Roles = "achat1,achat2,admin")]
         public async Task<IActionResult> UploadDevis(int id, IFormFile file, [FromQuery] int slot = 1)
@@ -992,6 +1349,149 @@ namespace Purse.Backend.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { chemin, slot });
+        }
+
+        // ─── POST /{id}/request-info — Demander des infos complémentaires ───────
+        [HttpPost("{id}/request-info")]
+        [Authorize(Roles = "chef,achat1,achat2,finance,directeur,emea,admin")]
+        public IActionResult RequestInfo(int id, [FromBody] RequestInfoDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Message))
+                return BadRequest(new { message = "Le message est requis." });
+
+            var demande = _context.Demandes
+                .Include(d => d.Utilisateur)
+                .FirstOrDefault(d => d.Id == id);
+            if (demande == null) return NotFound("Demande introuvable");
+
+            if (demande.Statut == "En attente informations complémentaires")
+                return BadRequest(new { message = "Une demande d'informations est déjà en cours." });
+
+            var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower().Trim() ?? "";
+            var userIdClaim = User.FindFirst("id")?.Value;
+            int currentUserId = 0;
+            if (!string.IsNullOrEmpty(userIdClaim)) int.TryParse(userIdClaim, out currentUserId);
+
+            // Autorisation par statut
+            bool allowed = (demande.Statut, roleClaim) switch
+            {
+                ("En attente validation chef", var r) when r is "chef" or "achat2" or "finance" or "directeur" or "emea" or "admin" => true,
+                ("En attente validation achat1", "achat1") => true,
+                ("En attente validation achat1", "admin") => true,
+                ("En attente validation achat2", "achat2") => true,
+                ("En attente validation achat2", "admin") => true,
+                ("En attente confirmation finance", "finance") => true,
+                ("En attente confirmation finance", "admin") => true,
+                ("En attente validation directeur", "directeur") => true,
+                ("En attente validation directeur", "admin") => true,
+                ("En attente validation EMEA", "emea") => true,
+                ("En attente validation EMEA", "admin") => true,
+                ("En attente insertion SAP", "achat1") => true,
+                ("En attente insertion SAP", "admin") => true,
+                _ => false
+            };
+            if (!allowed)
+                return BadRequest(new { message = $"Vous n'êtes pas autorisé à demander des infos sur le statut '{demande.Statut}' avec le rôle '{roleClaim}'." });
+
+            // Si chef-like, vérifier ownership pour statut chef
+            if (demande.Statut == "En attente validation chef" && roleClaim != "admin" && demande.Utilisateur?.ChefId != currentUserId)
+                return BadRequest(new { message = "Vous n'êtes pas le chef de ce demandeur." });
+
+            demande.StatutAvantInfo = demande.Statut;
+            demande.InfoMessage = dto.Message.Trim();
+            demande.InfoDemandeParRole = roleClaim;
+            demande.InfoDemandeParUserId = currentUserId == 0 ? null : currentUserId;
+            demande.InfoDemandeDate = DateTime.Now;
+            demande.InfoReponse = null;
+            demande.InfoReponseDate = null;
+            demande.Statut = "En attente informations complémentaires";
+            demande.UpdatedAt = DateTime.Now;
+
+            // Email au demandeur
+            if (demande.Utilisateur != null && !string.IsNullOrEmpty(demande.Utilisateur.Email) && demande.Utilisateur.Active == true)
+            {
+                _emailService.SendNotification(demande.Utilisateur.Email,
+                    $"ℹ️ Informations complémentaires requises — Demande #{id}",
+                    $"Le valideur <b>{roleClaim}</b> demande des informations complémentaires pour votre demande <b>#{id}</b> :<br><blockquote>{System.Net.WebUtility.HtmlEncode(dto.Message)}</blockquote>Veuillez répondre depuis l'historique de vos demandes.");
+            }
+
+            _context.SaveChanges();
+            return Ok(new { message = "Demande d'informations envoyée", statut = demande.Statut, infoMessage = demande.InfoMessage });
+        }
+
+        // ─── POST /{id}/respond-info — Répondre à la demande d'infos ──────────
+        [HttpPost("{id}/respond-info")]
+        [Authorize]
+        public IActionResult RespondInfo(int id, [FromBody] RespondInfoDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Reponse))
+                return BadRequest(new { message = "La réponse est requise." });
+
+            var demande = _context.Demandes
+                .Include(d => d.Utilisateur)
+                .FirstOrDefault(d => d.Id == id);
+            if (demande == null) return NotFound("Demande introuvable");
+
+            if (demande.Statut != "En attente informations complémentaires")
+                return BadRequest(new { message = "La demande n'est pas en attente d'informations." });
+
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            int currentUserId = int.Parse(userIdClaim);
+            if (demande.UtilisateurId != currentUserId)
+                return Forbid();
+
+            demande.InfoReponse = dto.Reponse.Trim();
+            demande.InfoReponseDate = DateTime.Now;
+            demande.UpdatedAt = DateTime.Now;
+
+            // Restaurer le statut précédent
+            var statutRestaure = string.IsNullOrEmpty(demande.StatutAvantInfo) ? "En attente validation chef" : demande.StatutAvantInfo!;
+            demande.Statut = statutRestaure;
+            demande.StatutAvantInfo = null;
+
+            // Notifier le valideur qui a demandé l'info
+            if (demande.InfoDemandeParUserId.HasValue)
+            {
+                var valideur = _context.Utilisateurs.FirstOrDefault(u => u.Id == demande.InfoDemandeParUserId.Value);
+                if (valideur != null && !string.IsNullOrEmpty(valideur.Email) && valideur.Active == true)
+                {
+                    _emailService.SendNotification(valideur.Email,
+                        $"✅ Réponse reçue — Demande #{id}",
+                        $"Le demandeur <b>{demande.Utilisateur?.Nom}</b> a répondu à votre demande d'informations pour la demande <b>#{id}</b> :<br><blockquote>{System.Net.WebUtility.HtmlEncode(dto.Reponse)}</blockquote>La demande est repassée en <b>{statutRestaure}</b>.");
+                }
+            }
+
+            _context.SaveChanges();
+            return Ok(new { message = "Réponse envoyée", statut = demande.Statut });
+        }
+
+        // ─── GET /mes-demandes — demandes du user connecté (pour affichage info) ─
+        [HttpGet("mes-demandes")]
+        [Authorize]
+        public IActionResult GetMesDemandes()
+        {
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            int userId = int.Parse(userIdClaim);
+            var fMapM = GetFournisseurNomMap();
+            var baseNumM = GetNextProvisionalBase();
+            var listM = IncludeAll(_context.Demandes)
+                .Where(d => d.UtilisateurId == userId)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToList();
+            int idxM = 0;
+            var demandes = listM.Select(d =>
+            {
+                string? po = null;
+                if (d.Statut == "En attente validation EMEA" || d.Statut == "En attente insertion SAP")
+                {
+                    po = $"{baseNumM + idxM}-1";
+                    idxM++;
+                }
+                return MapDemandeEnrichi(d, fMapM, po);
+            }).ToList();
+            return Ok(demandes);
         }
 
     }

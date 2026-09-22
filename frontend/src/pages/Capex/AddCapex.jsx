@@ -33,13 +33,13 @@ export default function AddCapex() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Capex ajouté avec succès");
+        setSnackbarMessage("Capex added successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/capex"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de l'ajout");
+      setSnackbarMessage(err.response?.data?.message || "Error adding Capex");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -50,11 +50,11 @@ export default function AddCapex() {
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Ajouter un Capex
+            Add Capex
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du Capex"
+              label="Capex Name"
               value={nomCapex}
               onChange={(e) => setNomCapex(e.target.value)}
               fullWidth
@@ -62,7 +62,7 @@ export default function AddCapex() {
               margin="normal"
             />
             <TextField
-              label="Budget Total"
+              label="Total Budget"
               type="number"
               value={budgetTotal}
               onChange={(e) => setBudgetTotal(e.target.value)}
@@ -72,7 +72,7 @@ export default function AddCapex() {
               inputProps={{ min: 0, step: "0.01" }}
             />
             <TextField
-              label="Budget Restant"
+              label="Remaining Budget"
               type="number"
               value={budgetRestant}
               onChange={(e) => setBudgetRestant(e.target.value)}
@@ -83,30 +83,30 @@ export default function AddCapex() {
             />
             <TextField
             select
-            label="Devise"
+            label="Currency"
             value={devis}
             onChange={(e) => setDevis(e.target.value)}
             fullWidth
             required
             margin="normal"
             >
-            <MenuItem value="MAD">MAD - Dirham Marocain</MenuItem>
+            <MenuItem value="MAD">MAD - Moroccan Dirham</MenuItem>
             <MenuItem value="EUR">EUR - Euro</MenuItem>
-            <MenuItem value="USD">USD - Dollar Américain</MenuItem>
-            <MenuItem value="GBP">GBP - Livre Sterling</MenuItem>
-            <MenuItem value="SAR">SAR - Riyal Saoudien</MenuItem>
-            <MenuItem value="AED">AED - Dirham Émirati</MenuItem>
+            <MenuItem value="USD">USD - US Dollar</MenuItem>
+            <MenuItem value="GBP">GBP - British Pound</MenuItem>
+            <MenuItem value="SAR">SAR - Saudi Riyal</MenuItem>
+            <MenuItem value="AED">AED - Emirati Dirham</MenuItem>
             </TextField>
             <Box sx={{ mt: 2 }}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/capex")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
           </form>

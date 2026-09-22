@@ -77,7 +77,7 @@ namespace Purse.Backend.Controllers
                 Nom = dto.Nom,
                 Email = dto.Email,
                 MotDePasse = dto.MotDePasse,
-                Role = dto.Role,
+                Role = dto.Role?.ToLower().Trim() ?? "",
                 DepartementId = dto.DepartementId,
                 ChefId = dto.ChefId,
                 Active = dto.Active
@@ -112,7 +112,7 @@ namespace Purse.Backend.Controllers
             existing.Nom = dto.Nom;
             existing.Email = dto.Email;
             existing.MotDePasse = dto.MotDePasse;
-            existing.Role = dto.Role;
+            existing.Role = dto.Role?.ToLower().Trim() ?? existing.Role;
             existing.DepartementId = dto.DepartementId;
             existing.ChefId = dto.ChefId;
             existing.Active = dto.Active;

@@ -32,7 +32,7 @@ export default function EditCapex() {
         setBudgetRestant(data.budgetRestant);
         setDevis(data.devis || "");
       } catch (err) {
-        setSnackbarMessage("Erreur chargement Capex");
+        setSnackbarMessage("Error loading Capex");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         console.error(err);
@@ -59,30 +59,30 @@ export default function EditCapex() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Capex modifié avec succès");
+        setSnackbarMessage("Capex updated successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/capex"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de la modification");
+      setSnackbarMessage(err.response?.data?.message || "Error updating Capex");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
   };
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
     <Sidebar initialPath="/settings/capex">
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Modifier Capex
+            Edit Capex
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du Capex"
+              label="Capex Name"
               value={nomCapex}
               onChange={(e) => setNomCapex(e.target.value)}
               fullWidth
@@ -90,7 +90,7 @@ export default function EditCapex() {
               margin="normal"
             />
             <TextField
-              label="Budget Total"
+              label="Total Budget"
               type="number"
               value={budgetTotal}
               onChange={(e) => setBudgetTotal(e.target.value)}
@@ -100,7 +100,7 @@ export default function EditCapex() {
               inputProps={{ min: 0, step: "0.01" }}
             />
             <TextField
-              label="Budget Restant"
+              label="Remaining Budget"
               type="number"
               value={budgetRestant}
               onChange={(e) => setBudgetRestant(e.target.value)}
@@ -111,30 +111,30 @@ export default function EditCapex() {
             />
             <TextField
             select
-            label="Devise"
+            label="Currency"
             value={devis}
             onChange={(e) => setDevis(e.target.value)}
             fullWidth
             required
             margin="normal"
             >
-            <MenuItem value="MAD">MAD - Dirham Marocain</MenuItem>
+            <MenuItem value="MAD">MAD - Moroccan Dirham</MenuItem>
             <MenuItem value="EUR">EUR - Euro</MenuItem>
-            <MenuItem value="USD">USD - Dollar Américain</MenuItem>
-            <MenuItem value="GBP">GBP - Livre Sterling</MenuItem>
-            <MenuItem value="SAR">SAR - Riyal Saoudien</MenuItem>
-            <MenuItem value="AED">AED - Dirham Émirati</MenuItem>
+            <MenuItem value="USD">USD - US Dollar</MenuItem>
+            <MenuItem value="GBP">GBP - British Pound</MenuItem>
+            <MenuItem value="SAR">SAR - Saudi Riyal</MenuItem>
+            <MenuItem value="AED">AED - Emirati Dirham</MenuItem>
             </TextField>
             <Box sx={{ mt: 2 }}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/capex")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
           </form>

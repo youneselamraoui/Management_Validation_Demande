@@ -18,16 +18,16 @@ export default function MesDemandesApprouvees() {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const token = localStorage.getItem("token");
 
-  // Charger les demandes approuvées
+  // Load approved requests
   const fetchMesDemandes = async () => {
     try {
       const res = await axios.get("http://localhost:5056/api/demandes/mes-bons", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log("Réponse API:", res.data);
+      console.log("API Response:", res.data);
       setDemandes(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Erreur chargement demandes", err);
+      console.error("Error loading requests", err);
     }
   };
 
@@ -57,15 +57,15 @@ export default function MesDemandesApprouvees() {
 
       setSnackbar({
         open: true,
-        message: "RFX enregistré avec succès ✅",
+        message: "RFX saved successfully ✅",
         severity: "success"
       });
-      fetchMesDemandes(); // Recharger les demandes pour refléter les changements
+      fetchMesDemandes(); // Reload requests to reflect changes
     } catch (err) {
       console.error(err);
       setSnackbar({
         open: true,
-        message: "Erreur lors de l'enregistrement du RFX ❌",
+        message: "Error saving RFX ❌",
         severity: "error"
       });
     } finally {
@@ -79,7 +79,7 @@ export default function MesDemandesApprouvees() {
     <Sidebar>
     <Box>
       <Typography variant="h5" gutterBottom>
-        📋 Mes demandes approuvées
+        📋 My Approved Requests
       </Typography>
       <Divider />
 
@@ -88,11 +88,11 @@ export default function MesDemandesApprouvees() {
           <Card key={d.id} sx={{ mt: 2 }}>
             <CardContent>
               <Typography variant="h6">{d.titre}</Typography>
-              <Chip icon={<PersonIcon />} label={`Utilisateur: ${d.utilisateur?.nom}`} sx={{ mr: 1 }} />
+              <Chip icon={<PersonIcon />} label={`User: ${d.utilisateur?.nom}`} sx={{ mr: 1 }} />
               <Chip
                   icon={<CalendarMonthIcon />}
-                  label={`Créé le: ${d.createdAt
-                    ? new Date(d.createdAt).toLocaleString("fr-FR", { timeZone: "Africa/Casablanca" })
+                  label={`Created: ${d.createdAt
+                    ? new Date(d.createdAt).toLocaleString("en-GB", { timeZone: "Africa/Casablanca" })
                     : "—"}`}
                   sx={{ mr: 1 }}
                 />
@@ -100,7 +100,7 @@ export default function MesDemandesApprouvees() {
 
               <Box mt={2}>
                 <Button variant="contained" onClick={() => handleOpenDialog(d)}>
-                  Saisir RFX
+                  Enter RFX
                 </Button>
               </Box>
             </CardContent>
@@ -108,39 +108,39 @@ export default function MesDemandesApprouvees() {
         ))
       ) : (
         <Alert severity="info" sx={{ mt: 2 }}>
-          Aucune demande approuvée trouvée.
+          No approved requests found.
         </Alert>
       )}
 
      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>
-          📝 Saisie du RFX
+          📝 Enter RFX
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" mb={2}>
-            Demande #{selectedDemande?.id} —{" "}
+            Request #{selectedDemande?.id} —{" "}
             <strong>{selectedDemande?.utilisateur?.nom || "—"}</strong>
           </Typography>
           <TextField
             fullWidth
-            label="Numéro RFX"
+            label="RFX Number"
             value={rfxValue}
             onChange={(e) => setRfxValue(e.target.value)}
-            placeholder="Ex: RFX-2024-001"
+            placeholder="E.g.: RFX-2024-001"
             size="small"
             autoFocus
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button onClick={() => setOpenDialog(false)} variant="outlined">
-            Annuler
+            Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleSaveRfx}
             disabled={!rfxValue.trim()}
           >
-            Enregistrer
+            Save
           </Button>
         </DialogActions>
     </Dialog>

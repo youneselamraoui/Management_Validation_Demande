@@ -20,7 +20,7 @@ export default function EditFournisseur() {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const navigate = useNavigate();
-  const { id } = useParams(); // récupère l'id depuis l'URL
+  const { id } = useParams(); // get id from URL
 
   const [formData, setFormData] = useState({
     nom: "",
@@ -30,7 +30,7 @@ export default function EditFournisseur() {
     active: true,
   });
 
-  // Charger les données existantes
+  // Load existing data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -41,7 +41,7 @@ export default function EditFournisseur() {
         );
         setFormData(response.data);
       } catch (err) {
-        setSnackbarMessage("Erreur lors du chargement du fournisseur");
+        setSnackbarMessage("Error loading supplier");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         console.log(err);
@@ -50,7 +50,7 @@ export default function EditFournisseur() {
     fetchData();
   }, [id]);
 
-  // Soumettre les modifications
+  // Submit updates
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -62,13 +62,13 @@ export default function EditFournisseur() {
       );
 
       if (response.data.success) {
-        setSnackbarMessage("Fournisseur modifié avec succès");
+        setSnackbarMessage("Supplier updated successfully");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         setTimeout(() => navigate("/settings/fournisseurs"), 1500);
       }
     } catch (err) {
-      setSnackbarMessage(err.response?.data?.message || "Erreur lors de la modification");
+      setSnackbarMessage(err.response?.data?.message || "Error updating supplier");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -84,11 +84,11 @@ export default function EditFournisseur() {
       <Container maxWidth="sm">
         <Paper elevation={6} sx={{ p: 4, mt: 4 }}>
           <Typography variant="h5" fontWeight="bold" mb={3}>
-            Éditer fournisseur
+            Edit Supplier
           </Typography>
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Nom du fournisseur"
+              label="Supplier Name"
               name="nom"
               value={formData.nom}
               onChange={handleChange}
@@ -97,7 +97,7 @@ export default function EditFournisseur() {
               margin="normal"
             />
             <TextField
-              label="Email du contact"
+              label="Contact Email"
               name="contact"
               type="email"
               value={formData.contact}
@@ -107,7 +107,7 @@ export default function EditFournisseur() {
               margin="normal"
             />
             <TextField
-              label="Adresse"
+              label="Address"
               name="adresse"
               value={formData.adresse}
               onChange={handleChange}
@@ -116,7 +116,7 @@ export default function EditFournisseur() {
               margin="normal"
             />
             <TextField
-              label="Téléphone"
+              label="Phone"
               name="tel"
               value={formData.tel}
               onChange={handleChange}
@@ -135,20 +135,20 @@ export default function EditFournisseur() {
                   }
                 />
               }
-              label="Actif"
+              label="Active"
             />
 
-            {/* Boutons en bas */}
+            {/* Bottom buttons */}
             <Box display="flex" justifyContent="flex-end" mt={3}>
               <Button type="submit" variant="contained">
-                Enregistrer
+                Save
               </Button>
               <Button
                 variant="outlined"
                 sx={{ ml: 2 }}
                 onClick={() => navigate("/settings/fournisseurs")}
               >
-                Annuler
+                Cancel
               </Button>
             </Box>
           </form>
