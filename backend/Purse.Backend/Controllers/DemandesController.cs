@@ -310,7 +310,12 @@ namespace Purse.Backend.Controllers
                 {
                     string? fNom = null;
                     if (x.Fournisseur != null) fNom = x.Fournisseur.Nom;
-                    else if (x.FournisseurId != null && fMap.TryGetValue(x.FournisseurId.ToString()!, out var nom)) fNom = nom;
+                    else if (x.FournisseurId != null)
+                    {
+                        if (!fMap.TryGetValue(x.FournisseurId.ToString()!, out var nom))
+                            nom = $"Fournisseur #{x.FournisseurId}";
+                        fNom = nom;
+                    }
                     return new
                     {
                         x.Id,
@@ -387,11 +392,13 @@ namespace Purse.Backend.Controllers
                 x.Prix,
                 x.Devis,
                 x.FournisseurId,
-                Fournisseur = x.Fournisseur == null ? null : new
-                {
-                    x.Fournisseur.Id,
-                    x.Fournisseur.Nom
-                }
+                // Sécurité : Fournisseur est [NotMapped] donc toujours null ici.
+                // Si un FournisseurId existe, ne jamais renvoyer null (évite "--" côté frontend).
+                Fournisseur = x.Fournisseur != null
+                    ? new { Id = (int?)x.Fournisseur.Id, Nom = x.Fournisseur.Nom }
+                    : (x.FournisseurId != null
+                        ? new { Id = x.FournisseurId, Nom = $"Fournisseur #{x.FournisseurId}" }
+                        : null)
             }),
             bonsCommandes = d.BonsCommande.Select(b => new
             {
@@ -467,11 +474,12 @@ namespace Purse.Backend.Controllers
         [Authorize(Roles = "achat2,admin")]
         public IActionResult GetDemandesAchat2()
         {
+            var fMapAchat2 = GetFournisseurNomMap();
             var demandes = IncludeAll(_context.Demandes)
                 .Where(d => d.Statut == "En attente validation achat2")
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
+                .ToList()
+                .Select(d => MapDemandeEnrichi(d, fMapAchat2, null))
                 .ToList();
 
             return Ok(demandes);
@@ -481,11 +489,12 @@ namespace Purse.Backend.Controllers
         [Authorize(Roles = "finance,admin")]
         public IActionResult GetDemandesFinance()
         {
+            var fMapFinance = GetFournisseurNomMap();
             var demandes = IncludeAll(_context.Demandes)
                 .Where(d => d.Statut == "En attente confirmation finance")
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
+                .ToList()
+                .Select(d => MapDemandeEnrichi(d, fMapFinance, null))
                 .ToList();
 
             return Ok(demandes);
@@ -497,11 +506,12 @@ namespace Purse.Backend.Controllers
         [Authorize(Roles = "directeur,admin")]
         public IActionResult GetDemandesDirecteur()
         {
+            var fMapDirecteur = GetFournisseurNomMap();
             var demandes = IncludeAll(_context.Demandes)
                 .Where(d => d.Statut == "En attente validation directeur")
                 .OrderBy(d => d.CreatedAt)
-                .AsEnumerable()
-                .Select(MapDemande)
+                .ToList()
+                .Select(d => MapDemandeEnrichi(d, fMapDirecteur, null))
                 .ToList();
 
             return Ok(demandes);

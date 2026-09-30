@@ -110,6 +110,16 @@ const ValidationFinance = () => {
 
   const getDevise = (details) => details?.[0]?.devis ?? "—";
 
+  // Affiche toujours le nom supplier quand il existe — ne montre "—" que si aucun fournisseur lié
+  const getSupplierName = (d) => {
+    if (!d) return "—";
+    const nom = d.fournisseur?.nom ?? d.Fournisseur?.Nom ?? d.fournisseur?.Nom ?? d.Fournisseur?.nom;
+    if (nom) return nom;
+    const fid = d.fournisseurId ?? d.FournisseurId;
+    if (fid != null && fid !== "") return `Fournisseur #${fid}`;
+    return "—";
+  };
+
   if (loading) return (
     <Sidebar>
       <Box sx={{ textAlign: "center" }}>
@@ -235,7 +245,7 @@ const ValidationFinance = () => {
                         <TableRow key={i}>
                           <TableCell>{d.article}</TableCell>
                           <TableCell align="right">{d.quantite}</TableCell>
-                          <TableCell align="right">{d.fournisseur?.nom ?? "—"}</TableCell>
+                          <TableCell align="right">{getSupplierName(d)}</TableCell>
                           <TableCell align="right">{d.prix ?? "—"}</TableCell>
                           <TableCell align="right">{d.devis ?? "—"}</TableCell>
                           <TableCell align="right">

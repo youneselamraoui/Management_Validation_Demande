@@ -65,6 +65,15 @@ const formatDate = (val) =>
         minute: "2-digit" 
       }) 
     : "—";
+// Affiche toujours le nom supplier quand il existe — ne montre "—" que si aucun fournisseur lié
+const getSupplierName = (d) => {
+  if (!d) return "—";
+  const nom = d.fournisseur?.nom ?? d.Fournisseur?.Nom ?? d.fournisseur?.Nom ?? d.Fournisseur?.nom;
+  if (nom) return nom;
+  const fid = d.fournisseurId ?? d.FournisseurId;
+  if (fid != null && fid !== "") return `Fournisseur #${fid}`;
+  return "—";
+};
 const DetailsDemande = ({ open, onClose, demande, onResponded }) => {
   const { user } = useAuth();
   const [reponseText, setReponseText] = useState("");
@@ -400,7 +409,7 @@ const DetailsDemande = ({ open, onClose, demande, onResponded }) => {
               <TableRow key={i}>
                 <TableCell>{d.article}</TableCell>
                 <TableCell align="right">{d.quantite}</TableCell>
-                <TableCell align="right">{d.fournisseur?.nom ?? "—"}</TableCell>
+                <TableCell align="right">{getSupplierName(d)}</TableCell>
                 <TableCell align="right">{d.prix ?? "—"}</TableCell>
                 <TableCell align="right">{d.devis ?? "—"}</TableCell>
                 <TableCell align="right">

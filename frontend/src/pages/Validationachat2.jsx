@@ -114,6 +114,16 @@ const ValidationAchat2 = () => {
     }, 0).toFixed(2);
   };
 
+  // Affiche toujours le nom supplier quand il existe — ne montre "—" que si aucun fournisseur lié
+  const getSupplierName = (d) => {
+    if (!d) return "—";
+    const nom = d.fournisseur?.nom ?? d.Fournisseur?.Nom ?? d.fournisseur?.Nom ?? d.Fournisseur?.nom;
+    if (nom) return nom;
+    const fid = d.fournisseurId ?? d.FournisseurId;
+    if (fid != null && fid !== "") return `Fournisseur #${fid}`;
+    return "—";
+  };
+
   if (loading) return (
     <Sidebar>
       <Box sx={{ textAlign: "center" }}>
@@ -250,6 +260,7 @@ const ValidationAchat2 = () => {
                       <TableRow sx={{ bgcolor: "#f8fafc" }}>
                         <TableCell><strong>Item</strong></TableCell>
                         <TableCell align="right"><strong>Qty</strong></TableCell>
+                        <TableCell align="right"><strong>Supplier</strong></TableCell>
                         <TableCell align="right"><strong>Unit Price</strong></TableCell>
                         <TableCell align="right"><strong>Currency</strong></TableCell>
                         <TableCell align="right"><strong>Total</strong></TableCell>
@@ -260,6 +271,7 @@ const ValidationAchat2 = () => {
                         <TableRow key={i}>
                           <TableCell>{d.article}</TableCell>
                           <TableCell align="right">{d.quantite}</TableCell>
+                          <TableCell align="right">{getSupplierName(d)}</TableCell>
                           <TableCell align="right">{d.prix ?? "—"}</TableCell>
                           <TableCell align="right">{d.devis ?? "—"}</TableCell>
                           <TableCell align="right">

@@ -25,6 +25,16 @@ const getBase64FromUrl = async (url) => {
   });
 };
 
+// Affiche toujours le nom supplier quand il existe — ne montre "—" que si aucun fournisseur lié
+const getSupplierName = (d) => {
+  if (!d) return "—";
+  const nom = d.fournisseur?.nom ?? d.Fournisseur?.Nom ?? d.fournisseur?.Nom ?? d.Fournisseur?.nom;
+  if (nom) return nom;
+  const fid = d.fournisseurId ?? d.FournisseurId ?? d.fournisseur?.id ?? d.Fournisseur?.Id;
+  if (fid != null && fid !== "") return `Fournisseur #${fid}`;
+  return "—";
+};
+
 const generatePO = async (b, delai = 60) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -350,7 +360,7 @@ export default function SuiviPO() {
                         {b.demande.details?.map((item, i) => (
                           <TableRow key={i}>
                             <TableCell>{item.article}</TableCell>
-                            <TableCell>{item.fournisseur?.nom || "—"}</TableCell>
+                            <TableCell>{getSupplierName(item)}</TableCell>
                             <TableCell align="right">{item.quantite}</TableCell>
                             <TableCell align="right">
                               {item.prix != null ? `${item.prix.toFixed(2)} MAD` : "—"}
