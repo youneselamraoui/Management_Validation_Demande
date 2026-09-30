@@ -5,6 +5,7 @@ using Purse.Backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Purse.Backend.Services;
+using Purse.Backend.DTOs;
 
 namespace Purse.Backend.Controllers
 {
@@ -1278,8 +1279,11 @@ namespace Purse.Backend.Controllers
         [HttpPost("{id}/insert-sap")]
         [Authorize(Roles = "achat1,admin")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> InsertSap(int id, [FromForm] IFormFile file, [FromForm] string rfx, [FromForm] string commentaire)
+    public async Task<IActionResult> InsertSap(int id, [FromForm] InsertSapRequest request)
         {
+            var file = request.File;
+            var rfx = request.Rfx;
+            var commentaire = request.Commentaire;
             if (file == null || file.Length == 0) return BadRequest(new { message = "Fichier SAP manquant." });
             if (string.IsNullOrWhiteSpace(rfx)) return BadRequest(new { message = "RFX obligatoire." });
             if (string.IsNullOrWhiteSpace(commentaire)) return BadRequest(new { message = "Commentaire obligatoire." });
